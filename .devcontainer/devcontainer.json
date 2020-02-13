@@ -6,16 +6,22 @@
 		"--security-opt",
 		"seccomp=unconfined"
 	],
-	// Set *default* container specific settings.json values on container create. 
+	"mounts": [
+		// Mount current folder into ns3 scratch directory so waf can find it
+		"source=${localWorkspaceFolder}/simulation,target=/ns3/scratch,type=bind,consistency=cached",
+		"source=${localWorkspaceFolder}/fitnets,target=/ns3/src/fitnets,type=bind,consistency=cached"
+	],
+	// Set *default* container specific settings.json values on container create.
 	"settings": {
 		"terminal.integrated.shell.linux": "/bin/bash",
+		"editor.formatOnSave": true
 	},
 	// Add the IDs of extensions you want installed when the container is created.
 	"extensions": [
-		"ms-vscode.cpptools"
-	]
+		"ms-vscode.cpptools",
+	],
 	// Use 'forwardPorts' to make a list of ports inside the container available locally.
 	// "forwardPorts": [],
 	// Use 'postCreateCommand' to run commands after the container is created.
-	// "postCreateCommand": "uname -a",
+	"postCreateCommand": "apt-get update && apt-get install -y clang-format"
 }
