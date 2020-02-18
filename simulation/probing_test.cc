@@ -37,6 +37,7 @@
 #include "ns3/bridge-module.h"
 #include "ns3/csma-module.h"
 #include "ns3/internet-module.h"
+#include "ns3/applications-module.h"
 
 #include "ns3/probing-client.h"
 #include "ns3/probing-server.h"
@@ -45,10 +46,24 @@ using namespace ns3;
 
 NS_LOG_COMPONENT_DEFINE("MiniTopology");
 
+const auto TCP = TypeIdValue(TcpSocketFactory::GetTypeId());
+
 void RTTMeasurement(Ptr<OutputStreamWrapper> stream, double newValue)
 {
     *stream->GetStream() << Simulator::Now().GetSeconds() << ','
                          << newValue << std::endl;
+}
+
+Ptr<RandomVariableStream> TimeStream(double min = 0.0, double max = 1.0)
+{
+    return CreateObjectWithAttributes<UniformRandomVariable>(
+        "Min", DoubleValue(min),
+        "Max", DoubleValue(max));
+}
+
+PointerValue TimeStreamValue(double min = 0.0, double max = 1.0)
+{
+    return PointerValue(TimeStream(min, max));
 }
 
 int main(int argc, char *argv[])
@@ -68,6 +83,10 @@ int main(int argc, char *argv[])
     CommandLine cmd;
     cmd.Parse(argc, argv);
 
+    // Simulation variables
+    auto simStart = TimeValue(Seconds(0));
+    auto simStop = TimeValue(Seconds(20));
+
     //
     // Explicitly create the nodes required by the topology (shown above).
     //
@@ -75,8 +94,8 @@ int main(int argc, char *argv[])
     NodeContainer hosts;
     hosts.Create(2);
     // Keep references to host and server
-    auto clientNode = hosts.Get(0);
-    auto serverNode = hosts.Get(1);
+    auto h0 = hosts.Get(0);
+    auto h1 = hosts.Get(1);
 
     NodeContainer csmaSwitch;
     csmaSwitch.Create(1);
@@ -111,27 +130,68 @@ int main(int argc, char *argv[])
     Ipv4AddressHelper ipv4;
     ipv4.SetBase("10.1.1.0", "255.255.255.0");
     auto addresses = ipv4.Assign(hostDevices);
-    // Get Address: Device with index 1, address 0 (there is only one address)
-    auto server_address = addresses.GetAddress(1, 0);
+    // Get Address: Device with index 0/1, address 0 (only one address)
+    auto h0_address = addresses.GetAddress(0, 0);
+    auto h1_address = addresses.GetAddress(1, 0);
 
     // Create the probing client and server apps
-    NS_LOG_INFO("Create Applications.");
+    NS_LOG_INFO("Create Probing Applications.");
     uint16_t port = 9; // Discard port (RFC 863)
 
     auto probing_client = CreateObjectWithAttributes<ProbingClient>(
-        "RemoteAddress", AddressValue(server_address),
-        "RemotePort", UintegerValue(port));
+        "RemoteAddress", AddressValue(h1_address),
+        "RemotePort", UintegerValue(port),
+        "StartTime", TimeValue(Seconds(1)),
+        "StopTime", simStop);
     auto probing_server = CreateObjectWithAttributes<ProbingServer>(
-        "Port", UintegerValue(port));
+        "Port", UintegerValue(port),
+        "StartTime", simStart,
+        "StopTime", simStop);
 
     // Install apps
-    clientNode->AddApplication(probing_client);
-    serverNode->AddApplication(probing_server);
+    h0->AddApplication(probing_client);
+    h1->AddApplication(probing_server);
 
-    probing_server->SetStartTime(Seconds(0));
-    probing_server->SetStopTime(Seconds(20));
-    probing_client->SetStartTime(Seconds(1));
-    probing_client->SetStopTime(Seconds(19));
+    NS_LOG_INFO("Create Traffic Applications.");
+    // Create applications that send traffic in both directions
+    auto n_pairs = 10;
+    uint16_t base_port = 4200; // Note: We need two ports per pair
+    auto trafficStart = TimeStream(1, 2);
+    for (auto i_pair = 0; i_pair < n_pairs; ++i_pair)
+    {
+        // Addresses
+        auto base_port_pair = base_port + 2 * i_pair;
+
+        auto app_h1_address = AddressValue(
+            InetSocketAddress(h0_address, base_port_pair));
+        auto app_h0_address = AddressValue(
+            InetSocketAddress(h1_address, base_port_pair + 1));
+
+        // Sinks
+        Ptr<Application>
+            h0_sink = CreateObjectWithAttributes<PacketSink>(
+                "Local", app_h0_address, "Protocol", TCP,
+                "StartTime", simStart, "StopTime", simStop);
+        Ptr<Application> h1_sink = CreateObjectWithAttributes<PacketSink>(
+            "Local", app_h1_address, "Protocol", TCP,
+            "StartTime", simStart, "StopTime", simStop);
+        h0->AddApplication(h0_sink);
+        h1->AddApplication(h1_sink);
+
+        // Sources
+        Ptr<Application> h0_source = CreateObjectWithAttributes<OnOffApplication>(
+            "Remote", app_h1_address, "Protocol", TCP,
+            //"OnTime", TimeStreamValue(), "OffTime", TimeStreamValue(),
+            "StartTime", TimeValue(Seconds(trafficStart->GetValue())),
+            "StopTime", simStop);
+        Ptr<Application> h1_source = CreateObjectWithAttributes<OnOffApplication>(
+            "Remote", app_h0_address, "Protocol", TCP,
+            //"OnTime", TimeStreamValue(), "OffTime", TimeStreamValue(),
+            "StartTime", TimeValue(Seconds(trafficStart->GetValue())),
+            "StopTime", simStop);
+        h0->AddApplication(h0_source);
+        h1->AddApplication(h1_source);
+    }
 
     NS_LOG_INFO("Configure Tracing.");
     AsciiTraceHelper asciiTraceHelper;
