@@ -4,7 +4,7 @@
             "name": "Linux",
             "includePath": [
                 "${workspaceFolder}/**",
-                "/ns3/build/"
+                "/ns3/build/**"
             ],
             "defines": [],
             "compilerPath": "/usr/bin/gcc",

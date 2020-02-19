@@ -48,6 +48,14 @@ NS_LOG_COMPONENT_DEFINE("MiniTopology");
 
 const auto TCP = TypeIdValue(TcpSocketFactory::GetTypeId());
 
+// DEBUG TIIIME
+void sniffsniff(Ptr<Packet const> packet)
+{
+    std::cout << std::endl;
+    packet->Print(std::cout);
+    std::cout << std::endl;
+}
+
 void RTTMeasurement(Ptr<OutputStreamWrapper> stream, double newValue)
 {
     *stream->GetStream() << Simulator::Now().GetSeconds() << ','
@@ -118,6 +126,11 @@ int main(int argc, char *argv[])
         switchDevices.Add(link.Get(1));
     }
 
+    // DEBUG TIME
+    // Enable the packet printing through Packet::Print command.
+    Packet::EnablePrinting();
+    hostDevices.Get(0)->TraceConnectWithoutContext("MacTx", MakeCallback(&sniffsniff));
+
     // Create the bridge netdevice, which will do the packet switching
     Ptr<Node> switchNode = csmaSwitch.Get(0);
     BridgeHelper bridge;
@@ -154,7 +167,7 @@ int main(int argc, char *argv[])
 
     NS_LOG_INFO("Create Traffic Applications.");
     // Create applications that send traffic in both directions
-    auto n_pairs = 10;
+    auto n_pairs = 1;
     uint16_t base_port = 4200; // Note: We need two ports per pair
     auto trafficStart = TimeStream(1, 2);
     for (auto i_pair = 0; i_pair < n_pairs; ++i_pair)
