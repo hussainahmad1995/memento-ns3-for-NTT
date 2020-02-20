@@ -48,14 +48,6 @@ NS_LOG_COMPONENT_DEFINE("MiniTopology");
 
 const auto TCP = TypeIdValue(TcpSocketFactory::GetTypeId());
 
-// DEBUG TIIIME
-void sniffsniff(Ptr<Packet const> packet)
-{
-    std::cout << std::endl;
-    packet->Print(std::cout);
-    std::cout << std::endl;
-}
-
 void RTTMeasurement(Ptr<OutputStreamWrapper> stream, double newValue)
 {
     *stream->GetStream() << Simulator::Now().GetSeconds() << ','
@@ -93,7 +85,7 @@ int main(int argc, char *argv[])
 
     // Simulation variables
     auto simStart = TimeValue(Seconds(0));
-    auto simStop = TimeValue(Seconds(20));
+    auto simStop = TimeValue(Seconds(10));
 
     //
     // Explicitly create the nodes required by the topology (shown above).
@@ -125,12 +117,6 @@ int main(int argc, char *argv[])
         hostDevices.Add(link.Get(0));
         switchDevices.Add(link.Get(1));
     }
-
-    // DEBUG TIME
-    // Enable the packet printing through Packet::Print command.
-    Packet::EnablePrinting();
-    hostDevices.Get(0)->TraceConnectWithoutContext("MacTx", MakeCallback(&sniffsniff));
-
     // Create the bridge netdevice, which will do the packet switching
     Ptr<Node> switchNode = csmaSwitch.Get(0);
     BridgeHelper bridge;
@@ -154,7 +140,7 @@ int main(int argc, char *argv[])
     auto probing_client = CreateObjectWithAttributes<ProbingClient>(
         "RemoteAddress", AddressValue(h1_address),
         "RemotePort", UintegerValue(port),
-        "StartTime", TimeValue(Seconds(1)),
+        "StartTime", TimeValue(Seconds(0.)),
         "StopTime", simStop);
     auto probing_server = CreateObjectWithAttributes<ProbingServer>(
         "Port", UintegerValue(port),
@@ -167,7 +153,7 @@ int main(int argc, char *argv[])
 
     NS_LOG_INFO("Create Traffic Applications.");
     // Create applications that send traffic in both directions
-    auto n_pairs = 1;
+    auto n_pairs = 20;
     uint16_t base_port = 4200; // Note: We need two ports per pair
     auto trafficStart = TimeStream(1, 2);
     for (auto i_pair = 0; i_pair < n_pairs; ++i_pair)
@@ -175,9 +161,9 @@ int main(int argc, char *argv[])
         // Addresses
         auto base_port_pair = base_port + 2 * i_pair;
 
-        auto app_h1_address = AddressValue(
-            InetSocketAddress(h0_address, base_port_pair));
         auto app_h0_address = AddressValue(
+            InetSocketAddress(h0_address, base_port_pair));
+        auto app_h1_address = AddressValue(
             InetSocketAddress(h1_address, base_port_pair + 1));
 
         // Sinks
@@ -194,12 +180,14 @@ int main(int argc, char *argv[])
         // Sources
         Ptr<Application> h0_source = CreateObjectWithAttributes<OnOffApplication>(
             "Remote", app_h1_address, "Protocol", TCP,
-            //"OnTime", TimeStreamValue(), "OffTime", TimeStreamValue(),
+            "OnTime", TimeStreamValue(), "OffTime", TimeStreamValue(),
+            "DataRate", DataRateValue(DataRate("2Mbps")),
             "StartTime", TimeValue(Seconds(trafficStart->GetValue())),
             "StopTime", simStop);
         Ptr<Application> h1_source = CreateObjectWithAttributes<OnOffApplication>(
             "Remote", app_h0_address, "Protocol", TCP,
-            //"OnTime", TimeStreamValue(), "OffTime", TimeStreamValue(),
+            "OnTime", TimeStreamValue(), "OffTime", TimeStreamValue(),
+            "DataRate", DataRateValue(DataRate("2Mbps")),
             "StartTime", TimeValue(Seconds(trafficStart->GetValue())),
             "StopTime", simStop);
         h0->AddApplication(h0_source);
