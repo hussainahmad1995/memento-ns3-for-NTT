@@ -44,11 +44,6 @@ ProbingClient::GetTypeId(void)
                           .SetParent<Application>()
                           .SetGroupName("Applications")
                           .AddConstructor<ProbingClient>()
-                          .AddAttribute("MaxPackets",
-                                        "The maximum number of packets the application will send",
-                                        UintegerValue(100),
-                                        MakeUintegerAccessor(&ProbingClient::m_count),
-                                        MakeUintegerChecker<uint32_t>())
                           .AddAttribute("Interval",
                                         "The time to wait between packets",
                                         TimeValue(Seconds(1.0)),
@@ -64,11 +59,6 @@ ProbingClient::GetTypeId(void)
                                         UintegerValue(0),
                                         MakeUintegerAccessor(&ProbingClient::m_peerPort),
                                         MakeUintegerChecker<uint16_t>())
-                          .AddAttribute("PacketSize", "Size of echo data in outbound packets",
-                                        UintegerValue(100),
-                                        MakeUintegerAccessor(&ProbingClient::SetDataSize,
-                                                             &ProbingClient::GetDataSize),
-                                        MakeUintegerChecker<uint32_t>())
                           .AddTraceSource("Tx", "A new packet is created and is sent",
                                           MakeTraceSourceAccessor(&ProbingClient::m_txTrace),
                                           "ns3::Packet::TracedCallback")
@@ -191,105 +181,6 @@ void ProbingClient::StopApplication()
   Simulator::Cancel(m_sendEvent);
 }
 
-void ProbingClient::SetDataSize(uint32_t dataSize)
-{
-  NS_LOG_FUNCTION(this << dataSize);
-
-  //
-  // If the client is setting the echo packet data size this way, we infer
-  // that she doesn't care about the contents of the packet at all, so
-  // neither will we.
-  //
-  delete[] m_data;
-  m_data = 0;
-  m_dataSize = 0;
-  m_size = dataSize;
-}
-
-uint32_t
-ProbingClient::GetDataSize(void) const
-{
-  NS_LOG_FUNCTION(this);
-  return m_size;
-}
-
-void ProbingClient::SetFill(std::string fill)
-{
-  NS_LOG_FUNCTION(this << fill);
-
-  uint32_t dataSize = fill.size() + 1;
-
-  if (dataSize != m_dataSize)
-  {
-    delete[] m_data;
-    m_data = new uint8_t[dataSize];
-    m_dataSize = dataSize;
-  }
-
-  memcpy(m_data, fill.c_str(), dataSize);
-
-  //
-  // Overwrite packet size attribute.
-  //
-  m_size = dataSize;
-}
-
-void ProbingClient::SetFill(uint8_t fill, uint32_t dataSize)
-{
-  NS_LOG_FUNCTION(this << fill << dataSize);
-  if (dataSize != m_dataSize)
-  {
-    delete[] m_data;
-    m_data = new uint8_t[dataSize];
-    m_dataSize = dataSize;
-  }
-
-  memset(m_data, fill, dataSize);
-
-  //
-  // Overwrite packet size attribute.
-  //
-  m_size = dataSize;
-}
-
-void ProbingClient::SetFill(uint8_t *fill, uint32_t fillSize, uint32_t dataSize)
-{
-  NS_LOG_FUNCTION(this << fill << fillSize << dataSize);
-  if (dataSize != m_dataSize)
-  {
-    delete[] m_data;
-    m_data = new uint8_t[dataSize];
-    m_dataSize = dataSize;
-  }
-
-  if (fillSize >= dataSize)
-  {
-    memcpy(m_data, fill, dataSize);
-    m_size = dataSize;
-    return;
-  }
-
-  //
-  // Do all but the final fill.
-  //
-  uint32_t filled = 0;
-  while (filled + fillSize < dataSize)
-  {
-    memcpy(&m_data[filled], fill, fillSize);
-    filled += fillSize;
-  }
-
-  //
-  // Last fill may be partial
-  //
-  memcpy(&m_data[filled], fill, dataSize - filled);
-
-  //
-  // Overwrite packet size attribute.
-  //
-  m_size = dataSize;
-}
-
 void ProbingClient::ScheduleTransmit(Time dt)
 {
   NS_LOG_FUNCTION(this << dt);
@@ -326,25 +217,22 @@ void ProbingClient::Send(void)
 
   if (Ipv4Address::IsMatchingType(m_peerAddress))
   {
-    NS_LOG_INFO("At time " << Simulator::Now().GetSeconds() << "s client sent " << m_size << " bytes to " << Ipv4Address::ConvertFrom(m_peerAddress) << " port " << m_peerPort);
+    NS_LOG_INFO("At time " << Simulator::Now().GetSeconds() << "s client sent " << p->GetSize() << " bytes to " << Ipv4Address::ConvertFrom(m_peerAddress) << " port " << m_peerPort);
   }
   else if (Ipv6Address::IsMatchingType(m_peerAddress))
   {
-    NS_LOG_INFO("At time " << Simulator::Now().GetSeconds() << "s client sent " << m_size << " bytes to " << Ipv6Address::ConvertFrom(m_peerAddress) << " port " << m_peerPort);
+    NS_LOG_INFO("At time " << Simulator::Now().GetSeconds() << "s client sent " << p->GetSize() << " bytes to " << Ipv6Address::ConvertFrom(m_peerAddress) << " port " << m_peerPort);
   }
   else if (InetSocketAddress::IsMatchingType(m_peerAddress))
   {
-    NS_LOG_INFO("At time " << Simulator::Now().GetSeconds() << "s client sent " << m_size << " bytes to " << InetSocketAddress::ConvertFrom(m_peerAddress).GetIpv4() << " port " << InetSocketAddress::ConvertFrom(m_peerAddress).GetPort());
+    NS_LOG_INFO("At time " << Simulator::Now().GetSeconds() << "s client sent " << p->GetSize() << " bytes to " << InetSocketAddress::ConvertFrom(m_peerAddress).GetIpv4() << " port " << InetSocketAddress::ConvertFrom(m_peerAddress).GetPort());
   }
   else if (Inet6SocketAddress::IsMatchingType(m_peerAddress))
   {
-    NS_LOG_INFO("At time " << Simulator::Now().GetSeconds() << "s client sent " << m_size << " bytes to " << Inet6SocketAddress::ConvertFrom(m_peerAddress).GetIpv6() << " port " << Inet6SocketAddress::ConvertFrom(m_peerAddress).GetPort());
+    NS_LOG_INFO("At time " << Simulator::Now().GetSeconds() << "s client sent " << p->GetSize() << " bytes to " << Inet6SocketAddress::ConvertFrom(m_peerAddress).GetIpv6() << " port " << Inet6SocketAddress::ConvertFrom(m_peerAddress).GetPort());
   }
 
-  if (m_sent < m_count)
-  {
-    ScheduleTransmit(m_interval);
-  }
+  ScheduleTransmit(m_interval);
 }
 
 void ProbingClient::HandleRead(Ptr<Socket> socket)
