@@ -24,7 +24,7 @@
 //        |
 //        h1
 //
-// (TODO, below is inaccurate)
+// (TODO, below is inacongestionurate)
 // - CBR/UDP flows from n0 to n1 and from n3 to n0
 // - DropTail queues
 // - Tracing of queues and packet receptions to file "csma-bridge.tr"
@@ -47,6 +47,13 @@ using namespace ns3;
 NS_LOG_COMPONENT_DEFINE("MiniTopology");
 
 const auto TCP = TypeIdValue(TcpSocketFactory::GetTypeId());
+const auto UDP = TypeIdValue(UdpSocketFactory::GetTypeId());
+
+void congestionMeasurement(Ptr<OutputStreamWrapper> stream, Ptr<Packet const> p)
+{
+    *stream->GetStream() << Simulator::Now().GetSeconds() << ','
+                         << p->GetSize() << std::endl;
+}
 
 void RTTMeasurement(Ptr<OutputStreamWrapper> stream, double newValue)
 {
@@ -80,7 +87,11 @@ int main(int argc, char *argv[])
     // Allow the user to override any of the defaults and the above Bind() at
     // run-time, via command-line arguments
     //
+
+    double interval = 1.0;
+
     CommandLine cmd;
+    cmd.AddValue("interval", "Seconds to wait between probes.", interval);
     cmd.Parse(argc, argv);
 
     // Simulation variables
@@ -140,6 +151,7 @@ int main(int argc, char *argv[])
     auto probing_client = CreateObjectWithAttributes<ProbingClient>(
         "RemoteAddress", AddressValue(h1_address),
         "RemotePort", UintegerValue(port),
+        "Interval", TimeValue(Seconds(interval)),
         "StartTime", TimeValue(Seconds(0.)),
         "StopTime", simStop);
     auto probing_server = CreateObjectWithAttributes<ProbingServer>(
@@ -167,10 +179,9 @@ int main(int argc, char *argv[])
             InetSocketAddress(h1_address, base_port_pair + 1));
 
         // Sinks
-        Ptr<Application>
-            h0_sink = CreateObjectWithAttributes<PacketSink>(
-                "Local", app_h0_address, "Protocol", TCP,
-                "StartTime", simStart, "StopTime", simStop);
+        Ptr<Application> h0_sink = CreateObjectWithAttributes<PacketSink>(
+            "Local", app_h0_address, "Protocol", TCP,
+            "StartTime", simStart, "StopTime", simStop);
         Ptr<Application> h1_sink = CreateObjectWithAttributes<PacketSink>(
             "Local", app_h1_address, "Protocol", TCP,
             "StartTime", simStart, "StopTime", simStop);
@@ -194,10 +205,41 @@ int main(int argc, char *argv[])
         h1->AddApplication(h1_source);
     }
 
+    NS_LOG_INFO("Configure Congestion App.");
+    // Just blast UDP traffic from time to time
+    Ptr<Application> congestion_sink = CreateObjectWithAttributes<PacketSink>(
+        "Local", AddressValue(InetSocketAddress(h1_address, 2100)),
+        "Protocol", UDP, "StartTime", simStart, "StopTime", simStop);
+    h1->AddApplication(congestion_sink);
+
+    Ptr<Application> congestion_source = CreateObjectWithAttributes<OnOffApplication>(
+        "Remote", AddressValue(InetSocketAddress(h1_address, 2100)),
+        "Protocol", UDP,
+        // Shorter and rarer bursts
+        "OnTime", TimeStreamValue(0.1, 0.5),
+        "OffTime", TimeStreamValue(2, 4),
+        "DataRate", DataRateValue(DataRate("10Mbps")),
+        "StartTime", TimeValue(Seconds(trafficStart->GetValue(`))),
+        "StopTime", simStop);
+    h0->AddApplication(congestion_source);
+
     NS_LOG_INFO("Configure Tracing.");
     AsciiTraceHelper asciiTraceHelper;
-    Ptr<OutputStreamWrapper> stream = asciiTraceHelper.CreateFileStream("rtt.csv");
-    probing_client->TraceConnectWithoutContext("RTT", MakeBoundCallback(&RTTMeasurement, stream));
+    std::stringstream rtt_file;
+    rtt_file << "rtt[" << interval << "].csv";
+    probing_client->TraceConnectWithoutContext(
+        "RTT",
+        MakeBoundCallback(
+            &RTTMeasurement,
+            asciiTraceHelper.CreateFileStream(rtt_file.str())));
+
+    std::stringstream congestion_file;
+    congestion_file << "congestion[" << interval << "].csv";
+    congestion_source->TraceConnectWithoutContext(
+        "Tx",
+        MakeBoundCallback(
+            &congestionMeasurement,
+            asciiTraceHelper.CreateFileStream(congestion_file.str())));
 
     //
     // Configure tracing of all enqueue, dequeue, and NetDevice receive events.
