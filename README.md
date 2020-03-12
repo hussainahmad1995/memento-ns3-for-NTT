@@ -13,3 +13,5 @@ To run:
 In the container, you can use the `waf` command (its `./waf` with fixed cwd)
 
 Must run `waf configure` to include fitnets in build.
+
+TODO: python and notebook in container
