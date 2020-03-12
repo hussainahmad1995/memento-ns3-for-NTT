@@ -40,40 +40,46 @@ NS_OBJECT_ENSURE_REGISTERED(ProbingClient);
 TypeId
 ProbingClient::GetTypeId(void)
 {
-  static TypeId tid = TypeId("ns3::ProbingClient")
-                          .SetParent<Application>()
-                          .SetGroupName("Applications")
-                          .AddConstructor<ProbingClient>()
-                          .AddAttribute("Interval",
-                                        "The time to wait between packets",
-                                        TimeValue(Seconds(1.0)),
-                                        MakeTimeAccessor(&ProbingClient::m_interval),
-                                        MakeTimeChecker())
-                          .AddAttribute("RemoteAddress",
-                                        "The destination Address of the outbound packets",
-                                        AddressValue(),
-                                        MakeAddressAccessor(&ProbingClient::m_peerAddress),
-                                        MakeAddressChecker())
-                          .AddAttribute("RemotePort",
-                                        "The destination port of the outbound packets",
-                                        UintegerValue(0),
-                                        MakeUintegerAccessor(&ProbingClient::m_peerPort),
-                                        MakeUintegerChecker<uint16_t>())
-                          .AddTraceSource("Tx", "A new packet is created and is sent",
-                                          MakeTraceSourceAccessor(&ProbingClient::m_txTrace),
-                                          "ns3::Packet::TracedCallback")
-                          .AddTraceSource("Rx", "A packet has been received",
-                                          MakeTraceSourceAccessor(&ProbingClient::m_rxTrace),
-                                          "ns3::Packet::TracedCallback")
-                          .AddTraceSource("TxWithAddresses", "A new packet is created and is sent",
-                                          MakeTraceSourceAccessor(&ProbingClient::m_txTraceWithAddresses),
-                                          "ns3::Packet::TwoAddressTracedCallback")
-                          .AddTraceSource("RxWithAddresses", "A packet has been received",
-                                          MakeTraceSourceAccessor(&ProbingClient::m_rxTraceWithAddresses),
-                                          "ns3::Packet::TwoAddressTracedCallback")
-                          .AddTraceSource("RTT", "Measured RTT.",
-                                          MakeTraceSourceAccessor(&ProbingClient::m_rttTrace),
-                                          "ns3::ProbingClient::TracedDoubleCallback");
+  static TypeId tid =
+      TypeId("ns3::ProbingClient")
+          .SetParent<Application>()
+          .SetGroupName("Applications")
+          .AddConstructor<ProbingClient>()
+          .AddAttribute("Interval",
+                        "The time to wait between packets",
+                        TimeValue(Seconds(1.0)),
+                        MakeTimeAccessor(&ProbingClient::m_interval),
+                        MakeTimeChecker())
+          .AddAttribute("Burstsize",
+                        "Number of packets per probe.",
+                        UintegerValue(1),
+                        MakeUintegerAccessor(&ProbingClient::m_burstsize),
+                        MakeUintegerChecker<uint32_t>())
+          .AddAttribute("RemoteAddress",
+                        "The destination Address of the outbound packets",
+                        AddressValue(),
+                        MakeAddressAccessor(&ProbingClient::m_peerAddress),
+                        MakeAddressChecker())
+          .AddAttribute("RemotePort",
+                        "The destination port of the outbound packets",
+                        UintegerValue(0),
+                        MakeUintegerAccessor(&ProbingClient::m_peerPort),
+                        MakeUintegerChecker<uint16_t>())
+          .AddTraceSource("Tx", "A new packet is created and is sent",
+                          MakeTraceSourceAccessor(&ProbingClient::m_txTrace),
+                          "ns3::Packet::TracedCallback")
+          .AddTraceSource("Rx", "A packet has been received",
+                          MakeTraceSourceAccessor(&ProbingClient::m_rxTrace),
+                          "ns3::Packet::TracedCallback")
+          .AddTraceSource("TxWithAddresses", "A new packet is created and is sent",
+                          MakeTraceSourceAccessor(&ProbingClient::m_txTraceWithAddresses),
+                          "ns3::Packet::TwoAddressTracedCallback")
+          .AddTraceSource("RxWithAddresses", "A packet has been received",
+                          MakeTraceSourceAccessor(&ProbingClient::m_rxTraceWithAddresses),
+                          "ns3::Packet::TwoAddressTracedCallback")
+          .AddTraceSource("RTT", "Measured RTT.",
+                          MakeTraceSourceAccessor(&ProbingClient::m_rttTrace),
+                          "ns3::ProbingClient::TracedProbeCallback");
   return tid;
 }
 
@@ -85,6 +91,7 @@ ProbingClient::ProbingClient()
   m_sendEvent = EventId();
   m_data = 0;
   m_dataSize = 0;
+  m_burst = 0;
 }
 
 ProbingClient::~ProbingClient()
@@ -197,41 +204,29 @@ void ProbingClient::Send(void)
   m_socket->GetSockName(localAddress);
 
   // Create packet with current time as payload, to compute diff when it returns
-  auto data = Simulator::Now().GetSeconds();
-  NS_LOG_DEBUG("Sending timestamp: " << data);
-  auto p = Create<Packet>(reinterpret_cast<uint8_t *>(&data), sizeof(data));
+  auto time = Simulator::Now();
+  NS_LOG_DEBUG("Sending burst: " << m_burst << " at time: " << time);
+  for (uint32_t i = 0; i < m_burstsize; ++i)
+  {
+    NS_LOG_DEBUG("Sending packet: " << i);
+    ProbingPayload data = {m_burst, time};
+    auto p = Create<Packet>(reinterpret_cast<uint8_t *>(&data), sizeof(data));
 
-  // call to the trace sinks before the packet is actually sent,
-  // so that tags added to the packet can be sent as well
-  m_txTrace(p);
-  if (Ipv4Address::IsMatchingType(m_peerAddress))
-  {
-    m_txTraceWithAddresses(p, localAddress, InetSocketAddress(Ipv4Address::ConvertFrom(m_peerAddress), m_peerPort));
+    // call to the trace sinks before the packet is actually sent,
+    // so that tags added to the packet can be sent as well
+    m_txTrace(p);
+    if (Ipv4Address::IsMatchingType(m_peerAddress))
+    {
+      m_txTraceWithAddresses(p, localAddress, InetSocketAddress(Ipv4Address::ConvertFrom(m_peerAddress), m_peerPort));
+    }
+    else if (Ipv6Address::IsMatchingType(m_peerAddress))
+    {
+      m_txTraceWithAddresses(p, localAddress, Inet6SocketAddress(Ipv6Address::ConvertFrom(m_peerAddress), m_peerPort));
+    }
+    m_socket->Send(p);
+    ++m_sent;
   }
-  else if (Ipv6Address::IsMatchingType(m_peerAddress))
-  {
-    m_txTraceWithAddresses(p, localAddress, Inet6SocketAddress(Ipv6Address::ConvertFrom(m_peerAddress), m_peerPort));
-  }
-  m_socket->Send(p);
-  ++m_sent;
-
-  if (Ipv4Address::IsMatchingType(m_peerAddress))
-  {
-    NS_LOG_INFO("At time " << Simulator::Now().GetSeconds() << "s client sent " << p->GetSize() << " bytes to " << Ipv4Address::ConvertFrom(m_peerAddress) << " port " << m_peerPort);
-  }
-  else if (Ipv6Address::IsMatchingType(m_peerAddress))
-  {
-    NS_LOG_INFO("At time " << Simulator::Now().GetSeconds() << "s client sent " << p->GetSize() << " bytes to " << Ipv6Address::ConvertFrom(m_peerAddress) << " port " << m_peerPort);
-  }
-  else if (InetSocketAddress::IsMatchingType(m_peerAddress))
-  {
-    NS_LOG_INFO("At time " << Simulator::Now().GetSeconds() << "s client sent " << p->GetSize() << " bytes to " << InetSocketAddress::ConvertFrom(m_peerAddress).GetIpv4() << " port " << InetSocketAddress::ConvertFrom(m_peerAddress).GetPort());
-  }
-  else if (Inet6SocketAddress::IsMatchingType(m_peerAddress))
-  {
-    NS_LOG_INFO("At time " << Simulator::Now().GetSeconds() << "s client sent " << p->GetSize() << " bytes to " << Inet6SocketAddress::ConvertFrom(m_peerAddress).GetIpv6() << " port " << Inet6SocketAddress::ConvertFrom(m_peerAddress).GetPort());
-  }
-
+  ++m_burst;
   ScheduleTransmit(m_interval);
 }
 
@@ -256,12 +251,13 @@ void ProbingClient::HandleRead(Ptr<Socket> socket)
     m_rxTrace(packet);
     m_rxTraceWithAddresses(packet, from, localAddress);
 
-    double sending_time, current_time = Simulator::Now().GetSeconds();
-    packet->CopyData(reinterpret_cast<uint8_t *>(&sending_time),
-                     sizeof(sending_time));
-    NS_LOG_DEBUG("Received timestamp: " << sending_time);
+    auto current_time = Simulator::Now();
+    ProbingPayload data;
+    packet->CopyData(reinterpret_cast<uint8_t *>(&data),
+                     sizeof(data));
+    NS_LOG_DEBUG("Received timestamp: " << data.timestamp);
     NS_LOG_DEBUG("Current time:       " << current_time);
-    m_rttTrace(current_time - sending_time);
+    m_rttTrace(data.burst, current_time - data.timestamp);
   }
 }
 

@@ -31,6 +31,7 @@
 
 #include <iostream>
 #include <fstream>
+#include <unordered_map>
 
 #include "ns3/core-module.h"
 #include "ns3/network-module.h"
@@ -49,17 +50,77 @@ NS_LOG_COMPONENT_DEFINE("MiniTopology");
 const auto TCP = TypeIdValue(TcpSocketFactory::GetTypeId());
 const auto UDP = TypeIdValue(UdpSocketFactory::GetTypeId());
 
-void congestionMeasurement(Ptr<OutputStreamWrapper> stream, Ptr<Packet const> p)
+void RTTMeasurement(Ptr<OutputStreamWrapper> stream, uint32_t burst, Time rtt)
 {
     *stream->GetStream() << Simulator::Now().GetSeconds() << ','
-                         << p->GetSize() << std::endl;
+                         << burst << ','
+                         << rtt.GetSeconds() << std::endl;
 }
 
-void RTTMeasurement(Ptr<OutputStreamWrapper> stream, double newValue)
+// Helpers to compute one-way delay
+class TimestampTag : public Tag
 {
-    *stream->GetStream() << Simulator::Now().GetSeconds() << ','
-                         << newValue << std::endl;
-}
+public:
+    static TypeId GetTypeId(void)
+    {
+        static TypeId tid = TypeId("ns3::TimestampTag")
+                                .SetParent<Tag>()
+                                .AddConstructor<TimestampTag>()
+                                .AddAttribute("Timestamp",
+                                              "Timestamp to save in tag.",
+                                              EmptyAttributeValue(),
+                                              MakeTimeAccessor(&TimestampTag::timestamp),
+                                              MakeTimeChecker());
+        return tid;
+    };
+    TypeId GetInstanceTypeId(void) const { return GetTypeId(); };
+    uint32_t GetSerializedSize(void) const { return sizeof(timestamp); };
+    void Serialize(TagBuffer i) const
+    {
+        i.Write(reinterpret_cast<const uint8_t *>(&timestamp),
+                sizeof(timestamp));
+    };
+    void Deserialize(TagBuffer i)
+    {
+        i.Read(reinterpret_cast<uint8_t *>(&timestamp), sizeof(timestamp));
+    };
+    void Print(std::ostream &os) const
+    {
+        os << "t=" << timestamp;
+    };
+
+    // these are our accessors to our tag structure
+    void SetTime(Time time) { timestamp = time; };
+    Time GetTime() { return timestamp; };
+
+private:
+    Time timestamp;
+};
+
+void tx(Ptr<Packet const> p)
+{
+    TimestampTag tag;
+    tag.SetTime(Simulator::Now());
+    //std::cout << tag.GetTime() << std::endl;
+    p->AddPacketTag(tag);
+};
+
+void rx(Ptr<OutputStreamWrapper> stream, Ptr<Packet const> p)
+{
+    TimestampTag tag;
+    if (p->PeekPacketTag(tag))
+    {
+        auto current_time = Simulator::Now();
+        auto diff_time = current_time - tag.GetTime();
+        //std::cout << current_time << ',' << tag.GetTime() << std::endl;
+        *stream->GetStream() << current_time.GetSeconds() << ','
+                             << diff_time.GetSeconds() << std::endl;
+    }
+    else
+    {
+        NS_LOG_ERROR("Packet without timestamp.");
+    };
+};
 
 Ptr<RandomVariableStream> TimeStream(double min = 0.0, double max = 1.0)
 {
@@ -82,21 +143,23 @@ int main(int argc, char *argv[])
 #if 1
     LogComponentEnable("MiniTopology", LOG_LEVEL_INFO);
 #endif
-
     //
     // Allow the user to override any of the defaults and the above Bind() at
     // run-time, via command-line arguments
     //
 
     double interval = 1.0;
+    u_int32_t burstsize = 1;
 
     CommandLine cmd;
     cmd.AddValue("interval", "Seconds to wait between probes.", interval);
+    cmd.AddValue("burstsize", "Number of probing packets.", burstsize);
     cmd.Parse(argc, argv);
 
     // Simulation variables
     auto simStart = TimeValue(Seconds(0));
-    auto simStop = TimeValue(Seconds(10));
+    auto stopTime = Seconds(10);
+    auto simStop = TimeValue(stopTime);
 
     //
     // Explicitly create the nodes required by the topology (shown above).
@@ -133,6 +196,21 @@ int main(int argc, char *argv[])
     BridgeHelper bridge;
     bridge.Install(switchNode, switchDevices);
 
+    // Install delay tracing
+    // TODO: Exclude probing packets somehow?
+    AsciiTraceHelper asciiTraceHelper;
+    std::stringstream trackfilename;
+    trackfilename << "delays[" << interval << "," << burstsize << "].csv";
+    auto trackfile = asciiTraceHelper.CreateFileStream(trackfilename.str());
+
+    for (auto it = hostDevices.Begin(); it != hostDevices.End(); ++it)
+    {
+        Ptr<NetDevice> dev = *it;
+        dev->TraceConnectWithoutContext("MacTx", MakeCallback(&tx));
+        dev->TraceConnectWithoutContext(
+            "MacRx", MakeBoundCallback(&rx, trackfile));
+    };
+
     // Add internet stack and IP addresses to the hosts
     NS_LOG_INFO("Setup stack and assign IP Addresses.");
     InternetStackHelper internet;
@@ -152,7 +230,8 @@ int main(int argc, char *argv[])
         "RemoteAddress", AddressValue(h1_address),
         "RemotePort", UintegerValue(port),
         "Interval", TimeValue(Seconds(interval)),
-        "StartTime", TimeValue(Seconds(0.)),
+        "Burstsize", UintegerValue(burstsize),
+        "StartTime", simStart,
         "StopTime", simStop);
     auto probing_server = CreateObjectWithAttributes<ProbingServer>(
         "Port", UintegerValue(port),
@@ -219,27 +298,18 @@ int main(int argc, char *argv[])
         "OnTime", TimeStreamValue(0.1, 0.5),
         "OffTime", TimeStreamValue(2, 4),
         "DataRate", DataRateValue(DataRate("10Mbps")),
-        "StartTime", TimeValue(Seconds(trafficStart->GetValue(`))),
+        "StartTime", TimeValue(Seconds(trafficStart->GetValue())),
         "StopTime", simStop);
     h0->AddApplication(congestion_source);
 
     NS_LOG_INFO("Configure Tracing.");
-    AsciiTraceHelper asciiTraceHelper;
     std::stringstream rtt_file;
-    rtt_file << "rtt[" << interval << "].csv";
+    rtt_file << "rtt[" << interval << "," << burstsize << "].csv";
     probing_client->TraceConnectWithoutContext(
         "RTT",
         MakeBoundCallback(
             &RTTMeasurement,
             asciiTraceHelper.CreateFileStream(rtt_file.str())));
-
-    std::stringstream congestion_file;
-    congestion_file << "congestion[" << interval << "].csv";
-    congestion_source->TraceConnectWithoutContext(
-        "Tx",
-        MakeBoundCallback(
-            &congestionMeasurement,
-            asciiTraceHelper.CreateFileStream(congestion_file.str())));
 
     //
     // Configure tracing of all enqueue, dequeue, and NetDevice receive events.
@@ -261,6 +331,7 @@ int main(int argc, char *argv[])
     // Now, do the actual simulation.
     //
     NS_LOG_INFO("Run Simulation.");
+    Simulator::Stop(stopTime);
     Simulator::Run();
     Simulator::Destroy();
     NS_LOG_INFO("Done.");

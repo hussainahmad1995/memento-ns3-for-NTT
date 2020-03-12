@@ -29,6 +29,15 @@
 namespace ns3
 {
 
+struct ProbingPayload
+{
+  uint32_t burst;
+  Time timestamp;
+};
+
+// Typedef for custom callback (TODO: not sure if this is actually needed...)
+typedef void (*TracedProbeCallback)(uint32_t burst, Time timestamp);
+
 class Socket;
 class Packet;
 
@@ -50,9 +59,6 @@ public:
   ProbingClient();
 
   virtual ~ProbingClient();
-
-  // Typedef for custom callback (TODO: not sure if this is actually needed...)
-  typedef void (*TracedDoubleCallback)(double value);
 
   /**
    * \brief set the remote address and port
@@ -92,7 +98,9 @@ private:
    */
   void HandleRead(Ptr<Socket> socket);
 
-  Time m_interval; //!< Packet inter-send time
+  Time m_interval;      //!< Packet inter-send time
+  uint32_t m_burst;     // Counter of packet bursts
+  uint32_t m_burstsize; // Packets per burst
 
   uint32_t m_dataSize; //!< packet payload size (must be equal to m_size)
   uint8_t *m_data;     //!< packet payload data
@@ -104,7 +112,7 @@ private:
   EventId m_sendEvent;   //!< Event to send the next packet
 
   //!< Callbacks for measured RTTs
-  TracedCallback<double> m_rttTrace;
+  TracedCallback<uint32_t, Time> m_rttTrace;
 
   /// Callbacks for tracing the packet Tx events
   TracedCallback<Ptr<const Packet>> m_txTrace;
