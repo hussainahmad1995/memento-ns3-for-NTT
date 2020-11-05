@@ -52,7 +52,15 @@ void RTTMeasurement(Ptr<OutputStreamWrapper> stream, uint32_t burst, Time rtt)
                          << rtt.GetSeconds() << std::endl;
 }
 
-// Helpers to compute one-way delay
+// Put the current timestamp and packet size into a log.
+void logSize(Ptr<OutputStreamWrapper> stream, Ptr<Packet const> p)
+{
+    auto current_time = Simulator::Now();
+    *stream->GetStream() << current_time.GetSeconds() << ','
+                         << p->GetSize() << std::endl;
+}
+
+// A timestamp tag that can be added to a packet.
 class TimestampTag : public Tag
 {
 public:
@@ -92,28 +100,29 @@ private:
     Time timestamp;
 };
 
-void tx(Ptr<Packet const> p)
+// Tag a packet with a timestamp.
+void setTimeTag(Ptr<Packet const> p)
 {
     TimestampTag tag;
     tag.SetTime(Simulator::Now());
-    //std::cout << tag.GetTime() << std::endl;
     p->AddPacketTag(tag);
 };
 
-void rx(Ptr<OutputStreamWrapper> stream, Ptr<Packet const> p)
+// If the packet is tagged with a timestamp, write current time and tag
+// into the stream.
+void logTimeTag(Ptr<OutputStreamWrapper> stream, Ptr<Packet const> p)
 {
     TimestampTag tag;
     if (p->PeekPacketTag(tag))
     {
         auto current_time = Simulator::Now();
         auto diff_time = current_time - tag.GetTime();
-        //std::cout << current_time << ',' << tag.GetTime() << std::endl;
         *stream->GetStream() << current_time.GetSeconds() << ','
                              << diff_time.GetSeconds() << std::endl;
     }
     else
     {
-        NS_LOG_ERROR("Packet without timestamp.");
+        NS_LOG_DEBUG("Packet without timestamp.");
     };
 };
 
@@ -200,22 +209,26 @@ int main(int argc, char *argv[])
     bridge.Install(switchA, GetNetDevices(switchA));
     bridge.Install(switchB, GetNetDevices(switchB));
 
-    /*
-    // Install delay tracing
-    // TODO: Exclude probing packets somehow?
+    NS_LOG_INFO("Install Tracing");
     AsciiTraceHelper asciiTraceHelper;
-    std::stringstream trackfilename;
-    trackfilename << "delays[" << interval << "," << burstsize << "].csv";
-    auto trackfile = asciiTraceHelper.CreateFileStream(trackfilename.str());
 
-    for (auto it = hostDevices.Begin(); it != hostDevices.End(); ++it)
-    {
-        Ptr<NetDevice> dev = *it;
-        dev->TraceConnectWithoutContext("MacTx", MakeCallback(&tx));
-        dev->TraceConnectWithoutContext(
-            "MacRx", MakeBoundCallback(&rx, trackfile));
-    };
-    */
+    // Packet size.
+    std::stringstream sizefilename;
+    sizefilename << "sizes.csv";
+    auto sizefile = asciiTraceHelper.CreateFileStream(sizefilename.str());
+    sender->GetDevice(0)->TraceConnectWithoutContext(
+        "MacTx", MakeBoundCallback(&logSize, sizefile));
+
+    // Log (one-way) delay from sender to receiver (excludes other sources).
+    std::stringstream trackfilename;
+    //TODO: custom file name?
+    //trackfilename << "delays[" << interval << "," << burstsize << "].csv";
+    trackfilename << "delays.csv";
+    auto trackfile = asciiTraceHelper.CreateFileStream(trackfilename.str());
+    sender->GetDevice(0)->TraceConnectWithoutContext(
+        "MacTx", MakeCallback(&setTimeTag));
+    receiver->GetDevice(0)->TraceConnectWithoutContext(
+        "MacRx", MakeBoundCallback(&logTimeTag, trackfile));
 
     // Add internet stack and IP addresses to the hosts
     NS_LOG_INFO("Setup stack and assign IP Addresses.");
