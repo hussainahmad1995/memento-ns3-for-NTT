@@ -35,8 +35,7 @@
 #include "ns3/internet-module.h"
 #include "ns3/applications-module.h"
 
-#include "ns3/probing-client.h"
-#include "ns3/probing-server.h"
+#include "ns3/cdf-application.h"
 
 using namespace ns3;
 
@@ -173,7 +172,7 @@ int main(int argc, char *argv[])
 
     // Simulation variables
     auto simStart = TimeValue(Seconds(0));
-    auto stopTime = Seconds(10);
+    auto stopTime = Seconds(60);
     auto simStop = TimeValue(stopTime);
 
     //
@@ -271,46 +270,41 @@ int main(int argc, char *argv[])
 
     NS_LOG_INFO("Create Traffic Applications.");
     //TODO: Turn into function?
-    //TODO: Do I need bidirectional traffic?
     // Create applications that send traffic in both directions
-    auto n_pairs = 1;          //20;
+    auto n_apps = 20;          //20;
     uint16_t base_port = 4200; // Note: We need two ports per pair
     auto trafficStart = TimeStream(1, 2);
-    for (auto i_pair = 0; i_pair < n_pairs; ++i_pair)
+    for (auto i_app = 0; i_app < n_apps; ++i_app)
     {
         // Addresses
-        auto base_port_pair = base_port + 2 * i_pair;
-
         auto appAddrSender = AddressValue(
-            InetSocketAddress(addrSender, base_port_pair));
+            InetSocketAddress(addrSender, base_port + i_app));
         auto appAddrReceiver = AddressValue(
-            InetSocketAddress(addrReceiver, base_port_pair + 1));
+            InetSocketAddress(addrReceiver, base_port + i_app));
 
-        // Sinks
-        Ptr<Application> sinkSender = CreateObjectWithAttributes<PacketSink>(
-            "Local", appAddrSender, "Protocol", TCP,
-            "StartTime", simStart, "StopTime", simStop);
-        Ptr<Application> sinkReceiver = CreateObjectWithAttributes<PacketSink>(
+        // Sink
+        Ptr<Application> sink = CreateObjectWithAttributes<PacketSink>(
             "Local", appAddrReceiver, "Protocol", TCP,
             "StartTime", simStart, "StopTime", simStop);
-        sender->AddApplication(sinkSender);
-        receiver->AddApplication(sinkReceiver);
+        receiver->AddApplication(sink);
 
         // Sources
+        /*
         Ptr<Application> sourceSender = CreateObjectWithAttributes<OnOffApplication>(
             "Remote", appAddrReceiver, "Protocol", TCP,
             "OnTime", TimeStreamValue(), "OffTime", TimeStreamValue(),
             "DataRate", DataRateValue(DataRate("2Mbps")),
             "StartTime", TimeValue(Seconds(trafficStart->GetValue())),
             "StopTime", simStop);
-        Ptr<Application> sourceReceiver = CreateObjectWithAttributes<OnOffApplication>(
-            "Remote", appAddrSender, "Protocol", TCP,
-            "OnTime", TimeStreamValue(), "OffTime", TimeStreamValue(),
-            "DataRate", DataRateValue(DataRate("2Mbps")),
+        */
+        Ptr<CdfApplication> source = CreateObjectWithAttributes<CdfApplication>(
+            "Remote", appAddrReceiver, "Protocol", TCP,
+            "DataRate", DataRateValue(DataRate("100kbps")),
+            "CdfFile", StringValue("/workspaces/ns3-fitnets/distributions/DCTCP_MsgSizeDist.txt"),
             "StartTime", TimeValue(Seconds(trafficStart->GetValue())),
             "StopTime", simStop);
-        sender->AddApplication(sourceSender);
-        receiver->AddApplication(sourceReceiver);
+        source->AssignStreams(2 * i_app); // two streams each.
+        sender->AddApplication(source);
     }
 
     /*

@@ -5,7 +5,7 @@ def build(bld):
     module.source = [
         'model/probing-client.cc',
         'model/probing-server.cc',
-
+        'model/cdf-application.cc',
         ]
 
     fitnets_test = bld.create_ns3_module_test_library('fitnets')
@@ -17,6 +17,7 @@ def build(bld):
     headers.source = [
         'model/probing-client.h',
         'model/probing-server.h',
+        'model/cdf-application.h',
         ]
 
     if (bld.env['ENABLE_EXAMPLES']):
