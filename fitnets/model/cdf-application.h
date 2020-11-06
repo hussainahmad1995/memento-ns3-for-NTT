@@ -147,7 +147,7 @@ private:
   Ptr<Socket> m_socket;     //!< Associated socket
   Address m_peer;           //!< Peer address
   bool m_connected;         //!< True if connected
-  DataRate m_Rate;          //!< Rate that data is generated
+  DataRate m_rate;          //!< Rate that data is generated
   Time m_lastStartTime;     //!< Time last packet sent
   uint64_t m_maxBytes;      //!< Limit total number of bytes sent
   uint64_t m_totBytes;      //!< Total bytes sent so far
@@ -157,7 +157,6 @@ private:
 
   // cdf files!
   std::string m_filename;
-  std::string m_loaded_filename;
   double m_average_size; // in bytes!
   Ptr<EmpiricalRandomVariable> m_sizeDist;
   Ptr<ExponentialRandomVariable> m_timeDist;
@@ -184,8 +183,14 @@ private:
    */
   void ConnectionFailed(Ptr<Socket> socket);
 
-  // Load the provided distribution.
-  void LoadDistribution();
+  // Accessors for Distribution Attributes
+  bool SetDistribution(std::string filename);
+  std::string GetDistribution() const;
+
+  void SetRate(DataRate rate);
+  DataRate GetRate() const;
+
+  // Helper to set the rate dist, needs to be called by both setters above.
   void UpdateRateDistribution();
 };
 

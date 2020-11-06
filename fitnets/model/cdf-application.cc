@@ -62,11 +62,13 @@ CdfApplication::GetTypeId(void)
           .AddConstructor<CdfApplication>()
           .AddAttribute("DataRate", "The data rate in on state.",
                         DataRateValue(DataRate("500kb/s")),
-                        MakeDataRateAccessor(&CdfApplication::m_Rate),
+                        MakeDataRateAccessor(&CdfApplication::SetRate,
+                                             &CdfApplication::GetRate),
                         MakeDataRateChecker())
           .AddAttribute("CdfFile", "Message size distribution file.",
-                        StringValue(""),
-                        MakeStringAccessor(&CdfApplication::m_filename),
+                        EmptyAttributeValue(),
+                        MakeStringAccessor(&CdfApplication::SetDistribution,
+                                           &CdfApplication::GetDistribution),
                         MakeStringChecker())
           .AddAttribute("Remote", "The address of the destination",
                         AddressValue(),
@@ -99,13 +101,11 @@ CdfApplication::CdfApplication()
       m_connected(false),
       m_lastStartTime(Seconds(0)),
       m_totBytes(0),
-      m_loaded_filename(""),
       m_average_size(0),
       m_sizeDist(CreateObject<EmpiricalRandomVariable>()),
       m_timeDist(CreateObject<ExponentialRandomVariable>())
 {
   NS_LOG_FUNCTION(this);
-  LoadDistribution(); // TODO REMOVE
 }
 
 CdfApplication::~CdfApplication()
@@ -215,8 +215,6 @@ void CdfApplication::ScheduleNextTx()
 
   if (m_maxBytes == 0 || m_totBytes < m_maxBytes)
   {
-    // Load dist (noop if already loaded).
-    LoadDistribution();
     // Draw waiting time.
     auto nextTime = Seconds(m_timeDist->GetValue());
     NS_LOG_DEBUG("Wait Time: " << nextTime.GetMilliSeconds() << "ms.");
@@ -234,7 +232,6 @@ void CdfApplication::SendPacket()
   NS_LOG_FUNCTION(this);
 
   // Draw packet size.
-  LoadDistribution(); // Ensure dist is loaded. Does nothing if it is.
   auto size = m_sizeDist->GetInteger();
   NS_LOG_DEBUG("Choosen Size: " << size << " Bytes.");
 
@@ -280,6 +277,7 @@ void CdfApplication::ConnectionFailed(Ptr<Socket> socket)
   NS_LOG_FUNCTION(this << socket);
 }
 
+/*
 void CdfApplication::LoadDistribution()
 {
   NS_LOG_FUNCTION(this);
@@ -315,13 +313,52 @@ void CdfApplication::LoadDistribution()
 
   m_loaded_filename = m_filename;
 }
+*/
 
 void CdfApplication::UpdateRateDistribution()
 {
   NS_LOG_FUNCTION(this);
-  auto timeBetween = m_Rate.CalculateBytesTxTime(m_average_size);
-  NS_LOG_DEBUG(8 * m_average_size / timeBetween.GetSeconds() / 1000 << " kbps.");
+  auto timeBetween = m_rate.CalculateBytesTxTime(m_average_size);
   m_timeDist->SetAttribute("Mean", DoubleValue(timeBetween.GetSeconds()));
 }
+
+bool CdfApplication::SetDistribution(std::string filename)
+{
+  NS_LOG_FUNCTION(this << filename);
+  m_filename = filename;
+
+  // Reset existing dist, if any.
+  m_sizeDist = CreateObject<EmpiricalRandomVariable>();
+
+  std::ifstream distFile(m_filename);
+
+  if (!(distFile >> m_average_size))
+  {
+    NS_LOG_ERROR("Could not parse file: " << m_filename);
+    return false;
+  }
+  // Using the average rate, update the time dist.
+  UpdateRateDistribution();
+
+  NS_LOG_DEBUG("Average size: " << m_average_size << " Bytes.");
+  NS_LOG_DEBUG("Average interarrival time: " << m_timeDist->GetMean() << "s.");
+
+  NS_LOG_DEBUG("Loading CDF from file...");
+  double value, probability;
+  while (distFile >> value >> probability)
+  {
+    NS_LOG_DEBUG(value << ", " << probability);
+    m_sizeDist->CDF(value, probability);
+  }
+  return true;
+}
+std::string CdfApplication::GetDistribution() const { return m_filename; }
+
+void CdfApplication::SetRate(DataRate rate)
+{
+  m_rate = rate;
+  UpdateRateDistribution();
+}
+DataRate CdfApplication::GetRate() const { return m_rate; }
 
 } // Namespace ns3
