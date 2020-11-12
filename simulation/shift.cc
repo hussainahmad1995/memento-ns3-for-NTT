@@ -185,10 +185,12 @@ int main(int argc, char *argv[])
     auto rate_w2 = DataRate(static_cast<uint64_t>(c_w2 * baserate.GetBitRate()));
     auto rate_w3 = DataRate(static_cast<uint64_t>(c_w3 * baserate.GetBitRate()));
 
-    /*
     // Print Overview of seetings
     NS_LOG_DEBUG("Overview:"
-                 "Apps: "
+                 << std::endl
+                 << "Congestion: "
+                 << congestion << std::endl
+                 << "Apps: "
                  << n_apps << std::endl
                  << "Workloads (data rates per app):"
                  << std::endl
@@ -197,7 +199,6 @@ int main(int argc, char *argv[])
                  << "W2: " << w2 << " (" << rate_w2 << ")"
                  << std::endl
                  << "W3: " << w3 << " (" << rate_w3 << ")");
-    */
 
     // Simulation variables
     auto simStart = TimeValue(Seconds(0));
@@ -298,23 +299,29 @@ int main(int argc, char *argv[])
         }
     }
 
-    NS_LOG_INFO("Configure Congestion App.");
-    // Just blast UDP traffic from time to time
-    Ptr<Application> congestion_sink = CreateObjectWithAttributes<PacketSink>(
-        "Local", AddressValue(InetSocketAddress(addrReceiver, 2100)),
-        "Protocol", UDP, "StartTime", simStart, "StopTime", simStop);
-    receiver->AddApplication(congestion_sink);
+    if (congestion > 0)
+    {
+        NS_LOG_INFO("Configure congestion app.");
+        // Just blast UDP traffic from time to time
+        Ptr<Application> congestion_sink = CreateObjectWithAttributes<PacketSink>(
+            "Local", AddressValue(InetSocketAddress(addrReceiver, 2100)),
+            "Protocol", UDP, "StartTime", simStart, "StopTime", simStop);
+        receiver->AddApplication(congestion_sink);
 
-    Ptr<Application> congestion_source = CreateObjectWithAttributes<OnOffApplication>(
-        "Remote", AddressValue(InetSocketAddress(addrReceiver, 2100)),
-        "Protocol", UDP,
-        "OnTime", StringValue("ns3::ConstantRandomVariable[Constant=1]"),
-        "OffTime", StringValue("ns3::ConstantRandomVariable[Constant=0]"),
-        "DataRate", DataRateValue(congestion),
-        "StartTime", TimeValue(Seconds(trafficStart->GetValue())),
-        "StopTime", simStop);
-    disturbance->AddApplication(congestion_source);
-
+        Ptr<Application> congestion_source = CreateObjectWithAttributes<OnOffApplication>(
+            "Remote", AddressValue(InetSocketAddress(addrReceiver, 2100)),
+            "Protocol", UDP,
+            "OnTime", StringValue("ns3::ConstantRandomVariable[Constant=1]"),
+            "OffTime", StringValue("ns3::ConstantRandomVariable[Constant=0]"),
+            "DataRate", DataRateValue(congestion),
+            "StartTime", TimeValue(Seconds(trafficStart->GetValue())),
+            "StopTime", simStop);
+        disturbance->AddApplication(congestion_source);
+    }
+    else
+    {
+        NS_LOG_INFO("No congestion.");
+    }
     NS_LOG_INFO("Install Tracing");
     AsciiTraceHelper asciiTraceHelper;
 
