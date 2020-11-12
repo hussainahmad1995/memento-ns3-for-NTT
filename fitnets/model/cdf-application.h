@@ -37,11 +37,11 @@
 namespace ns3
 {
 
-class Address;
-class RandomVariableStream;
-class Socket;
+  class Address;
+  class RandomVariableStream;
+  class Socket;
 
-/**
+  /**
  * \ingroup applications 
  * \defgroup onoff CdfApplication
  *
@@ -53,7 +53,7 @@ class Socket;
  * During the "On" state, cbr traffic is generated. This cbr traffic is
  * characterized by the specified "data rate" and "packet size".
  */
-/**
+  /**
 * \ingroup onoff
 *
 * \brief Generate traffic to a single destination according to an
@@ -86,113 +86,100 @@ class Socket;
 * If the underlying socket type supports broadcast, this application
 * will automatically enable the SetAllowBroadcast(true) socket option.
 */
-class CdfApplication : public Application
-{
-public:
-  /**
+  class CdfApplication : public Application
+  {
+  public:
+    /**
    * \brief Get the type ID.
    * \return the object TypeId
    */
-  static TypeId GetTypeId(void);
+    static TypeId GetTypeId(void);
 
-  CdfApplication();
+    CdfApplication();
 
-  virtual ~CdfApplication();
+    virtual ~CdfApplication();
 
-  /**
-   * \brief Set the total number of bytes to send.
-   *
-   * Once these bytes are sent, no packet is sent again, even in on state.
-   * The value zero means that there is no limit.
-   *
-   * \param maxBytes the total number of bytes to send
-   */
-  void SetMaxBytes(uint64_t maxBytes);
-
-  /**
+    /**
    * \brief Return a pointer to associated socket.
    * \return pointer to associated socket
    */
-  Ptr<Socket> GetSocket(void) const;
+    Ptr<Socket> GetSocket(void) const;
 
-  /**
+    /**
   * \brief Assign a fixed random variable stream number to the random variables
   * used by this model.
   *
   * \param stream first stream index to use
   * \return the number of stream indices assigned by this model
   */
-  int64_t AssignStreams(int64_t stream);
+    int64_t AssignStreams(int64_t stream);
 
-protected:
-  virtual void DoDispose(void);
+  protected:
+    virtual void DoDispose(void);
 
-private:
-  // inherited from Application base class.
-  virtual void StartApplication(void); // Called at time specified by Start
-  virtual void StopApplication(void);  // Called at time specified by Stop
+  private:
+    // inherited from Application base class.
+    virtual void StartApplication(void); // Called at time specified by Start
+    virtual void StopApplication(void);  // Called at time specified by Stop
 
-  //helpers
-  /**
+    //helpers
+    /**
    * \brief Cancel all pending events.
    */
-  void CancelEvents();
+    void CancelEvents();
 
-  // Event handlers
-  /**
+    // Event handlers
+    /**
    * \brief Send a packet
    */
-  void SendPacket();
+    void SendPacket();
 
-  Ptr<Socket> m_socket;     //!< Associated socket
-  Address m_peer;           //!< Peer address
-  bool m_connected;         //!< True if connected
-  DataRate m_rate;          //!< Rate that data is generated
-  Time m_lastStartTime;     //!< Time last packet sent
-  uint64_t m_maxBytes;      //!< Limit total number of bytes sent
-  uint64_t m_totBytes;      //!< Total bytes sent so far
-  EventId m_startStopEvent; //!< Event id for next start or stop event
-  EventId m_sendEvent;      //!< Event id of pending "send packet" event
-  TypeId m_tid;             //!< Type of the socket used
+    Ptr<Socket> m_socket; //!< Associated socket
+    Address m_peer;       //!< Peer address
+    bool m_connected;     //!< True if connected
+    DataRate m_rate;      //!< Rate that data is generated
+    Time m_lastStartTime; //!< Time last packet sent
+    EventId m_sendEvent;  //!< Event id of pending "send packet" event
+    TypeId m_tid;         //!< Type of the socket used
 
-  // cdf files!
-  std::string m_filename;
-  double m_average_size; // in bytes!
-  Ptr<EmpiricalRandomVariable> m_sizeDist;
-  Ptr<ExponentialRandomVariable> m_timeDist;
+    // cdf files!
+    std::string m_filename;
+    double m_average_size; // in bytes!
+    Ptr<EmpiricalRandomVariable> m_sizeDist;
+    Ptr<ExponentialRandomVariable> m_timeDist;
 
-  /// Traced Callback: transmitted packets.
-  TracedCallback<Ptr<const Packet>> m_txTrace;
+    /// Traced Callback: transmitted packets.
+    TracedCallback<Ptr<const Packet>> m_txTrace;
 
-  /// Callbacks for tracing the packet Tx events, includes source and destination addresses
-  TracedCallback<Ptr<const Packet>, const Address &, const Address &> m_txTraceWithAddresses;
+    /// Callbacks for tracing the packet Tx events, includes source and destination addresses
+    TracedCallback<Ptr<const Packet>, const Address &, const Address &> m_txTraceWithAddresses;
 
-private:
-  /**
+  private:
+    /**
    * \brief Schedule the next packet transmission
    */
-  void ScheduleNextTx();
-  /**
+    void ScheduleNextTx();
+    /**
    * \brief Handle a Connection Succeed event
    * \param socket the connected socket
    */
-  void ConnectionSucceeded(Ptr<Socket> socket);
-  /**
+    void ConnectionSucceeded(Ptr<Socket> socket);
+    /**
    * \brief Handle a Connection Failed event
    * \param socket the not connected socket
    */
-  void ConnectionFailed(Ptr<Socket> socket);
+    void ConnectionFailed(Ptr<Socket> socket);
 
-  // Accessors for Distribution Attributes
-  bool SetDistribution(std::string filename);
-  std::string GetDistribution() const;
+    // Accessors for Distribution Attributes
+    bool SetDistribution(std::string filename);
+    std::string GetDistribution() const;
 
-  void SetRate(DataRate rate);
-  DataRate GetRate() const;
+    void SetRate(DataRate rate);
+    DataRate GetRate() const;
 
-  // Helper to set the rate dist, needs to be called by both setters above.
-  void UpdateRateDistribution();
-};
+    // Helper to set the rate dist, needs to be called by both setters above.
+    void UpdateRateDistribution();
+  };
 
 } // namespace ns3
 
