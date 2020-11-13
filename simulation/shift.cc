@@ -36,6 +36,7 @@
 #include "ns3/applications-module.h"
 
 #include "ns3/cdf-application.h"
+#include "ns3/experiment-tags.h"
 
 using namespace ns3;
 
@@ -52,46 +53,6 @@ void logSize(Ptr<OutputStreamWrapper> stream, Ptr<Packet const> p)
                          << p->GetSize() << std::endl;
 }
 
-// A timestamp tag that can be added to a packet.
-class TimestampTag : public Tag
-{
-public:
-    static TypeId GetTypeId(void)
-    {
-        static TypeId tid = TypeId("ns3::TimestampTag")
-                                .SetParent<Tag>()
-                                .AddConstructor<TimestampTag>()
-                                .AddAttribute("Timestamp",
-                                              "Timestamp to save in tag.",
-                                              EmptyAttributeValue(),
-                                              MakeTimeAccessor(&TimestampTag::timestamp),
-                                              MakeTimeChecker());
-        return tid;
-    };
-    TypeId GetInstanceTypeId(void) const { return GetTypeId(); };
-    uint32_t GetSerializedSize(void) const { return sizeof(timestamp); };
-    void Serialize(TagBuffer i) const
-    {
-        i.Write(reinterpret_cast<const uint8_t *>(&timestamp),
-                sizeof(timestamp));
-    };
-    void Deserialize(TagBuffer i)
-    {
-        i.Read(reinterpret_cast<uint8_t *>(&timestamp), sizeof(timestamp));
-    };
-    void Print(std::ostream &os) const
-    {
-        os << "t=" << timestamp;
-    };
-
-    // these are our accessors to our tag structure
-    void SetTime(Time time) { timestamp = time; };
-    Time GetTime() { return timestamp; };
-
-private:
-    Time timestamp;
-};
-
 // Tag a packet with a timestamp.
 void setTimeTag(Ptr<Packet const> p)
 {
@@ -100,18 +61,26 @@ void setTimeTag(Ptr<Packet const> p)
     p->AddPacketTag(tag);
 };
 
-// If the packet is tagged with a timestamp, write current time and tag
-// into the stream. Also add packet size.
-void logTimeTag(Ptr<OutputStreamWrapper> stream, Ptr<Packet const> p)
+void setWorkloadTag(u_int32_t workload_id, Ptr<Packet const> p)
 {
-    TimestampTag tag;
-    if (p->PeekPacketTag(tag))
+    IntTag tag;
+    tag.SetValue(workload_id);
+    p->AddPacketTag(tag);
+};
+
+// Log workload tag, timestamp tag, and packet size.
+void logPacketInfo(Ptr<OutputStreamWrapper> stream, Ptr<Packet const> p)
+{
+    TimestampTag timestampTag;
+    IntTag workloadTag;
+    if (p->PeekPacketTag(timestampTag) && p->PeekPacketTag(workloadTag))
     {
         auto current_time = Simulator::Now();
-        auto diff_time = current_time - tag.GetTime();
+        auto diff_time = current_time - timestampTag.GetTime();
         *stream->GetStream() << current_time.GetSeconds() << ','
                              << diff_time.GetSeconds() << ','
-                             << p->GetSize() << std::endl;
+                             << p->GetSize() << ','
+                             << workloadTag.GetValue() << std::endl;
     }
     else
     {
@@ -258,6 +227,8 @@ int main(int argc, char *argv[])
     auto trafficStart = TimeStream(1, 2);
     for (auto i_app = 0; i_app < n_apps; ++i_app)
     {
+        // We also need to set the appropriate tag at every application!
+
         // Addresses
         auto port = base_port + i_app;
         auto recvAddr = AddressValue(InetSocketAddress(addrReceiver, port));
@@ -277,6 +248,8 @@ int main(int argc, char *argv[])
                 "DataRate", DataRateValue(rate_w1), "CdfFile", StringValue(w3),
                 "StartTime", TimeValue(Seconds(trafficStart->GetValue())),
                 "StopTime", simStop);
+            source1->TraceConnectWithoutContext(
+                "Tx", MakeBoundCallback(&setWorkloadTag, 1));
             sender->AddApplication(source1);
         }
         if (rate_w2 > 0)
@@ -286,6 +259,8 @@ int main(int argc, char *argv[])
                 "DataRate", DataRateValue(rate_w2), "CdfFile", StringValue(w2),
                 "StartTime", TimeValue(Seconds(trafficStart->GetValue())),
                 "StopTime", simStop);
+            source2->TraceConnectWithoutContext(
+                "Tx", MakeBoundCallback(&setWorkloadTag, 2));
             sender->AddApplication(source2);
         }
         if (rate_w3 > 0)
@@ -295,6 +270,8 @@ int main(int argc, char *argv[])
                 "DataRate", DataRateValue(rate_w3), "CdfFile", StringValue(w3),
                 "StartTime", TimeValue(Seconds(trafficStart->GetValue())),
                 "StopTime", simStop);
+            source3->TraceConnectWithoutContext(
+                "Tx", MakeBoundCallback(&setWorkloadTag, 3));
             sender->AddApplication(source3);
         }
     }
@@ -342,7 +319,7 @@ int main(int argc, char *argv[])
     sender->GetDevice(0)->TraceConnectWithoutContext(
         "MacTx", MakeCallback(&setTimeTag));
     receiver->GetDevice(0)->TraceConnectWithoutContext(
-        "MacRx", MakeBoundCallback(&logTimeTag, trackfile));
+        "MacRx", MakeBoundCallback(&logPacketInfo, trackfile));
 
     //csma.EnablePcapAll("csma-bridge", false);
 

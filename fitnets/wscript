@@ -18,6 +18,7 @@ def build(bld):
         'model/probing-client.h',
         'model/probing-server.h',
         'model/cdf-application.h',
+        'model/experiment-tags.h',
         ]
 
     if (bld.env['ENABLE_EXAMPLES']):
