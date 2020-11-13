@@ -2,7 +2,7 @@
 
 function run {
     # Run with some default settings
-    cmd="NS_GLOBAL_VALUE=\"RngRun=$1\" waf --run \"shift ${@:2} --apps=20 --apprate=100kbps --linkrate=3Mbps\""
+    cmd="NS_GLOBAL_VALUE=\"RngRun=$1\" waf --run \"shift ${@:2} --apps=20 --apprate=1Mbps --linkrate=30Mbps\""
     echo $cmd
     eval "$cmd"
 }
@@ -12,7 +12,6 @@ for run in {0..9}; do
 
 # Simulate different traffic mixes
 run $run --prefix="w1_$run" --w1=1 --w2=0 --w3=0 --congestion=0
-exit
 run $run --prefix="w2_$run" --w1=2 --w2=0 --w3=0 --congestion=0
 run $run --prefix="w3_$run" --w1=3 --w2=0 --w3=0 --congestion=0
 

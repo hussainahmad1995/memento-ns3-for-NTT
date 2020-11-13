@@ -325,16 +325,19 @@ int main(int argc, char *argv[])
     NS_LOG_INFO("Install Tracing");
     AsciiTraceHelper asciiTraceHelper;
 
-    // Packet size.
+    // Packet size. TODO: not needed, is for now included in delay tracing.
+    /*
     std::stringstream sizefilename;
     sizefilename << prefix << "_sizes.csv";
     auto sizefile = asciiTraceHelper.CreateFileStream(sizefilename.str());
     sender->GetDevice(0)->TraceConnectWithoutContext(
         "MacTx", MakeBoundCallback(&logSize, sizefile));
+    */
 
     // Log (one-way) delay from sender to receiver (excludes other sources).
     std::stringstream trackfilename;
-    trackfilename << prefix << "_delays.csv";
+    // trackfilename << prefix << "_delays.csv";
+    trackfilename << prefix << ".csv"; // only one file for now.
     auto trackfile = asciiTraceHelper.CreateFileStream(trackfilename.str());
     sender->GetDevice(0)->TraceConnectWithoutContext(
         "MacTx", MakeCallback(&setTimeTag));
