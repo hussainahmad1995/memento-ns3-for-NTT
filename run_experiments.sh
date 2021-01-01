@@ -1,10 +1,12 @@
 #! /bin/bash
 
+resultdir=results
+mkdir -p "$resultdir"
+
 function run {
     # Run with some default settings
     cmd="NS_GLOBAL_VALUE=\"RngRun=$1\" waf --run \"shift ${@:2} --apps=20 --apprate=1Mbps --linkrate=30Mbps\""
-    echo $cmd
-    eval "$cmd"
+    (cd $resultdir && eval "$cmd")
 }
 
 # Repeat ten times

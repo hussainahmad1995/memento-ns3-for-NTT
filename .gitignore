@@ -2,4 +2,4 @@
 *.csv
 *.pcap
 
-results/*
+results
