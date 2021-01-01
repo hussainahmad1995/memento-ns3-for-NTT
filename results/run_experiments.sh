@@ -12,8 +12,8 @@ for run in {0..9}; do
 
 # Simulate different traffic mixes
 run $run --prefix="w1_$run" --w1=1 --w2=0 --w3=0 --congestion=0
-run $run --prefix="w2_$run" --w1=2 --w2=0 --w3=0 --congestion=0
-run $run --prefix="w3_$run" --w1=3 --w2=0 --w3=0 --congestion=0
+run $run --prefix="w2_$run" --w1=0 --w2=1 --w3=0 --congestion=0
+run $run --prefix="w3_$run" --w1=0 --w2=0 --w3=1 --congestion=0
 
 run $run --prefix="w1w2_$run" --w1=0.5 --w2=0.5 --w3=0 --congestion=0
 run $run --prefix="w1w3_$run" --w1=0.5 --w2=0 --w3=0.5 --congestion=0
