@@ -40,7 +40,7 @@
 
 using namespace ns3;
 
-NS_LOG_COMPONENT_DEFINE("MiniTopology");
+NS_LOG_COMPONENT_DEFINE("ShiftExperiment");
 
 const auto TCP = TypeIdValue(TcpSocketFactory::GetTypeId());
 const auto UDP = TypeIdValue(UdpSocketFactory::GetTypeId());
@@ -118,7 +118,7 @@ int main(int argc, char *argv[])
     // for selected modules; the below lines suggest how to do this
     //
 #if 1
-    LogComponentEnable("MiniTopology", LOG_LEVEL_INFO);
+    LogComponentEnable("ShiftExperiment", LOG_LEVEL_INFO);
 #endif
     //
     // Allow the user to override any of the defaults and the above Bind() at
@@ -173,6 +173,10 @@ int main(int argc, char *argv[])
     auto simStart = TimeValue(Seconds(0));
     auto stopTime = Seconds(30);
     auto simStop = TimeValue(stopTime);
+
+    // Fix MTU and Segment size, otherwise the small TCP default (536) is used.
+    Config::SetDefault("ns3::CsmaNetDevice::Mtu", UintegerValue(1500));
+    Config::SetDefault("ns3::TcpSocket::SegmentSize", UintegerValue(1380));
 
     //
     // Explicitly create the nodes required by the topology (shown above).
@@ -245,7 +249,7 @@ int main(int argc, char *argv[])
         {
             Ptr<CdfApplication> source1 = CreateObjectWithAttributes<CdfApplication>(
                 "Remote", recvAddr, "Protocol", TCP,
-                "DataRate", DataRateValue(rate_w1), "CdfFile", StringValue(w3),
+                "DataRate", DataRateValue(rate_w1), "CdfFile", StringValue(w1),
                 "StartTime", TimeValue(Seconds(trafficStart->GetValue())),
                 "StopTime", simStop);
             source1->TraceConnectWithoutContext(
@@ -301,15 +305,6 @@ int main(int argc, char *argv[])
     }
     NS_LOG_INFO("Install Tracing");
     AsciiTraceHelper asciiTraceHelper;
-
-    // Packet size. TODO: not needed, is for now included in delay tracing.
-    /*
-    std::stringstream sizefilename;
-    sizefilename << prefix << "_sizes.csv";
-    auto sizefile = asciiTraceHelper.CreateFileStream(sizefilename.str());
-    sender->GetDevice(0)->TraceConnectWithoutContext(
-        "MacTx", MakeBoundCallback(&logSize, sizefile));
-    */
 
     // Log (one-way) delay from sender to receiver (excludes other sources).
     std::stringstream trackfilename;
