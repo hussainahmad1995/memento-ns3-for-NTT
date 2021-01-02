@@ -6,6 +6,7 @@ mkdir -p "$resultdir"
 function run {
     # Run with some default settings
     cmd="NS_GLOBAL_VALUE=\"RngRun=$1\" waf --run \"shift ${@:2} --apps=20 --apprate=1Mbps --linkrate=30Mbps\""
+    echo "$cmd"
     (cd $resultdir && eval "$cmd")
 }
 
