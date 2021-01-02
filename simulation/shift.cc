@@ -129,7 +129,7 @@ int main(int argc, char *argv[])
     DataRate linkrate("5Mbps");
     DataRate baserate("100kbps");
     DataRate congestion("0Mbps");
-    std::string basedir = "/workspaces/ns3-fitnets/distributions/";
+    std::string basedir = "./distributions/";
     std::string w1 = basedir + "Facebook_WebServerDist_IntraCluster.txt";
     std::string w2 = basedir + "DCTCP_MsgSizeDist.txt";
     std::string w3 = basedir + "Facebook_HadoopDist_All.txt";
