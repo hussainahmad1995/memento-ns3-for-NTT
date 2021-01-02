@@ -1,17 +1,56 @@
 # ns3-fitnets
 
-FitNets simulations with ns-3.
+Distribution shift experiments with ns-3.
 
-To run:
+## Overview
 
-1. Use VSCODE "develop in container" (just works).
-2. Use container manually.
-3. Move into `scratch/` dir of local ns3 installation.
+- `fitnets/` An ns-3 module containing simulation helpers.
+- `simulation/` Simulation scripts.
 
-(TODO: More detailed explanation.)
+## Running the simulations
 
-In the container, you can use the `waf` command (its `./waf` with fixed cwd)
+### Docker with Visual Studio Code
 
-Must run `waf configure` to include fitnets in build.
+When opening the directory, VSCode will prompt you to open the folder in a
+container. Inside the dev container, you can run scripts from the local directory or use the `waf` command.
+Before you run the simulations for the first time, you need to configure ns-3:
 
-TODO: python and notebook in container
+    $ waf configure
+
+Afterwards, you can run everything:
+
+    $ run_experiments.sh
+
+Or individual experiments (you can append parameters):
+
+    $ waf --run shift
+    $ waf --run "shift --w1=0"
+
+Check all available parameters:
+
+    $ waf --run "shift --PrintHelp"
+
+### Docker
+
+Use the `./docker-run.sh` script to run the simulations in a ns-3 environment.
+The first time you run the script, it will take some time to download and start
+the container. Afterwards, the container will be re-used.
+The project directory will be mapped to the container.
+Before you run the simulations for the first time, you need to configure ns-3:
+
+    $ ./docker-run.sh waf configure
+
+Afterwards, you can run everything:
+
+    $ ./docker-run.sh run_experiments.sh
+
+Or individual experiments (you can append parameters):
+
+    $ ./docker-run.sh waf --run shift
+    $ ./docker-run.sh waf --run "shift --w1=0"
+
+Check all available parameters:
+
+    $ ./docker-run.sh waf --run "shift --PrintHelp"
+
+If you need to clean up and remove the container, use `docker rm --force fitnets-runner`.

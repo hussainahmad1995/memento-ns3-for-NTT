@@ -23,4 +23,4 @@ docker run \
 docker exec $name chown -R $uid /ns3 /home
 
 # Run the provided command in the container.
-docker exec --user $uid $name $@
+docker exec --user $uid $name "$@"
