@@ -12,18 +12,18 @@ function run {
 }
 
 # Repeat ten times
-for run in {0..9}; do
+for run in {0..19}; do
 
 # Simulate different traffic mixes
 run $run "w1_$run" --w1=1 --w2=0 --w3=0 --congestion=0
 run $run "w2_$run" --w1=0 --w2=1 --w3=0 --congestion=0
 run $run "w3_$run" --w1=0 --w2=0 --w3=1 --congestion=0
 
-run $run "w1w2_$run" --w1=0.5 --w2=0.5 --w3=0 --congestion=0
-run $run "w1w3_$run" --w1=0.5 --w2=0 --w3=0.5 --congestion=0
+#run $run "w1w2_$run" --w1=0.5 --w2=0.5 --w3=0 --congestion=0
+#run $run "w1w3_$run" --w1=0.5 --w2=0 --w3=0.5 --congestion=0
 
-run $run "skewed1_$run" --w1=0.6 --w2=0.3 --w3=0.1 --congestion=0
-run $run "skewed3_$run" --w1=0.1 --w2=0.3 --w3=0.6 --congestion=0
+#run $run "skewed1_$run" --w1=0.6 --w2=0.3 --w3=0.1 --congestion=0
+#run $run "skewed3_$run" --w1=0.1 --w2=0.3 --w3=0.6 --congestion=0
 
 # Also simulate congestion levels
 run $run "c1_w1_$run" --w1=1 --w2=0 --w3=0 --congestion=5Mbps

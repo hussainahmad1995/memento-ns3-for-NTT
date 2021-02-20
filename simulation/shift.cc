@@ -171,7 +171,7 @@ int main(int argc, char *argv[])
 
     // Simulation variables
     auto simStart = TimeValue(Seconds(0));
-    auto stopTime = Seconds(30);
+    auto stopTime = Seconds(60);
     auto simStop = TimeValue(stopTime);
 
     // Fix MTU and Segment size, otherwise the small TCP default (536) is used.
