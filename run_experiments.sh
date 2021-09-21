@@ -3,16 +3,19 @@
 resultdir="results"
 mkdir -p "$resultdir"
 
+# Build modules once, then run without building.
+waf build
+
 function run {
     # Run with some default settings
-    cmd="NS_GLOBAL_VALUE=\"RngRun=$1\" waf --run \"shift ${@:3} --apps=20 --apprate=1Mbps --linkrate=30Mbps --prefix=$resultdir/$2\""
+    cmd="NS_GLOBAL_VALUE=\"RngRun=$1\" waf --run-no-build \"trafficgen ${@:3} --apps=20 --apprate=1Mbps --linkrate=30Mbps --prefix=$resultdir/$2\""
     echo "$cmd"
     eval "$cmd"
     #(cd $resultdir && eval "$cmd")
 }
 
-# Repeat 22 times
-for run in {0..21}; do
+# Repeat 22 times with different RNG to have plenty of data.
+for run in {0..30}; do
 
 # Simulate different traffic mixes
 run $run "w1_$run" --w1=1 --w2=0 --w3=0 --congestion=0

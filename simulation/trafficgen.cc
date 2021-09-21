@@ -40,7 +40,7 @@
 
 using namespace ns3;
 
-NS_LOG_COMPONENT_DEFINE("ShiftExperiment");
+NS_LOG_COMPONENT_DEFINE("TrafficGenerationExperiment");
 
 const auto TCP = TypeIdValue(TcpSocketFactory::GetTypeId());
 const auto UDP = TypeIdValue(UdpSocketFactory::GetTypeId());
@@ -61,10 +61,11 @@ void setTimeTag(Ptr<Packet const> p)
     p->AddPacketTag(tag);
 };
 
-void setWorkloadTag(u_int32_t workload_id, Ptr<Packet const> p)
+void setIdTag(u_int32_t workload_id, u_int32_t app_id, Ptr<Packet const> p)
 {
-    IntTag tag;
-    tag.SetValue(workload_id);
+    IdTag tag;
+    tag.SetWorkload(workload_id);
+    tag.SetApplication(app_id);
     p->AddPacketTag(tag);
 };
 
@@ -72,15 +73,16 @@ void setWorkloadTag(u_int32_t workload_id, Ptr<Packet const> p)
 void logPacketInfo(Ptr<OutputStreamWrapper> stream, Ptr<Packet const> p)
 {
     TimestampTag timestampTag;
-    IntTag workloadTag;
-    if (p->PeekPacketTag(timestampTag) && p->PeekPacketTag(workloadTag))
+    IdTag idTag;
+    if (p->PeekPacketTag(timestampTag) && p->PeekPacketTag(idTag))
     {
         auto current_time = Simulator::Now();
         auto diff_time = current_time - timestampTag.GetTime();
         *stream->GetStream() << current_time.GetSeconds() << ','
                              << diff_time.GetSeconds() << ','
                              << p->GetSize() << ','
-                             << workloadTag.GetValue() << std::endl;
+                             << idTag.GetWorkload() << ','
+                             << idTag.GetApplication() << std::endl;
     }
     else
     {
@@ -118,7 +120,7 @@ int main(int argc, char *argv[])
     // for selected modules; the below lines suggest how to do this
     //
 #if 1
-    LogComponentEnable("ShiftExperiment", LOG_LEVEL_INFO);
+    LogComponentEnable("TrafficGenerationExperiment", LOG_LEVEL_INFO);
 #endif
     //
     // Allow the user to override any of the defaults and the above Bind() at
@@ -244,7 +246,7 @@ int main(int argc, char *argv[])
         receiver->AddApplication(sink);
 
         // Sources for each workload
-
+        // App indexing scheme: 0--n_apps-1: w1, n_apps -- 2n_apps-1: w2, etc.
         if (rate_w1 > 0)
         {
             Ptr<CdfApplication> source1 = CreateObjectWithAttributes<CdfApplication>(
@@ -253,7 +255,7 @@ int main(int argc, char *argv[])
                 "StartTime", TimeValue(Seconds(trafficStart->GetValue())),
                 "StopTime", simStop);
             source1->TraceConnectWithoutContext(
-                "Tx", MakeBoundCallback(&setWorkloadTag, 1));
+                "Tx", MakeBoundCallback(&setIdTag, 1, i_app));
             sender->AddApplication(source1);
         }
         if (rate_w2 > 0)
@@ -264,7 +266,7 @@ int main(int argc, char *argv[])
                 "StartTime", TimeValue(Seconds(trafficStart->GetValue())),
                 "StopTime", simStop);
             source2->TraceConnectWithoutContext(
-                "Tx", MakeBoundCallback(&setWorkloadTag, 2));
+                "Tx", MakeBoundCallback(&setIdTag, 2, i_app + n_apps));
             sender->AddApplication(source2);
         }
         if (rate_w3 > 0)
@@ -275,7 +277,7 @@ int main(int argc, char *argv[])
                 "StartTime", TimeValue(Seconds(trafficStart->GetValue())),
                 "StopTime", simStop);
             source3->TraceConnectWithoutContext(
-                "Tx", MakeBoundCallback(&setWorkloadTag, 3));
+                "Tx", MakeBoundCallback(&setIdTag, 3, i_app + (2 * n_apps)));
             sender->AddApplication(source3);
         }
     }

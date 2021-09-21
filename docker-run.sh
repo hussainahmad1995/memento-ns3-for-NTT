@@ -1,6 +1,6 @@
 #! /bin/bash
 
-project="fitnets"
+project="generator"
 name="${project}-runner"
 
 # Get the current script directory, no matter where we are called from.

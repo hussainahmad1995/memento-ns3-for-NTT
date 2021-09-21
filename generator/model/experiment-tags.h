@@ -48,44 +48,60 @@ private:
     Time timestamp;
 };
 
-// A tag with simple integer value.
-class IntTag : public Tag
+// A tag with two integer values for workload and application ids.
+class IdTag : public Tag
 {
 public:
     static TypeId GetTypeId(void)
     {
-        static TypeId tid = TypeId("ns3::IntTag")
-                                .SetParent<Tag>()
-                                .AddConstructor<IntTag>()
-                                .AddAttribute("Int",
-                                              "Int to save in tag.",
-                                              EmptyAttributeValue(),
-                                              MakeUintegerAccessor(&IntTag::value),
-                                              MakeUintegerChecker<u_int32_t>());
+        static TypeId tid =
+            TypeId("ns3::IntTag")
+                .SetParent<Tag>()
+                .AddConstructor<IdTag>()
+                .AddAttribute("workload",
+                              "Workload id to save in tag.",
+                              EmptyAttributeValue(),
+                              MakeUintegerAccessor(&IdTag::workload),
+                              MakeUintegerChecker<u_int32_t>())
+                .AddAttribute("application",
+                              "Application id to save in tag.",
+                              EmptyAttributeValue(),
+                              MakeUintegerAccessor(&IdTag::application),
+                              MakeUintegerChecker<u_int32_t>());
         return tid;
     };
     TypeId GetInstanceTypeId(void) const { return GetTypeId(); };
-    uint32_t GetSerializedSize(void) const { return sizeof(value); };
+    uint32_t GetSerializedSize(void) const
+    {
+        return sizeof(workload) + sizeof(application);
+    };
     void Serialize(TagBuffer i) const
     {
-        i.Write(reinterpret_cast<const uint8_t *>(&value),
-                sizeof(value));
+        i.Write(reinterpret_cast<const uint8_t *>(&workload),
+                sizeof(workload));
+        i.Write(reinterpret_cast<const uint8_t *>(&application),
+                sizeof(application));
     };
     void Deserialize(TagBuffer i)
     {
-        i.Read(reinterpret_cast<uint8_t *>(&value), sizeof(value));
+        i.Read(reinterpret_cast<uint8_t *>(&workload), sizeof(workload));
+        i.Read(reinterpret_cast<uint8_t *>(&application), sizeof(application));
     };
     void Print(std::ostream &os) const
     {
-        os << "i=" << value;
+        os << "w=" << workload << ", "
+           << "a=" << application;
     };
 
     // these are our accessors to our tag structure
-    void SetValue(u_int32_t newval) { value = newval; };
-    u_int32_t GetValue() { return value; };
+    void SetWorkload(u_int32_t newval) { workload = newval; };
+    u_int32_t GetWorkload() { return workload; };
+    void SetApplication(u_int32_t newval) { application = newval; };
+    u_int32_t GetApplication() { return application; };
 
 private:
-    u_int32_t value;
+    u_int32_t workload;
+    u_int32_t application;
 };
 
 #endif // EXPERIMENT_TAGS_H

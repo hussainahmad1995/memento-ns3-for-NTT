@@ -4,7 +4,7 @@ Distribution shift experiments with ns-3.
 
 ## Overview
 
-- `fitnets/` An ns-3 module containing simulation helpers.
+- `generator/` An ns-3 module containing simulation helpers to generate traffic with specific CDF workloads.
 - `simulation/` Simulation scripts.
 
 ## Running the simulations
@@ -23,12 +23,12 @@ Afterwards, you can run everything:
 
 Or individual experiments (you can append parameters):
 
-    $ waf --run shift
-    $ waf --run "shift --w1=0"
+    $ waf --run trafficgen
+    $ waf --run "trafficgen --w1=0"
 
 Check all available parameters:
 
-    $ waf --run "shift --PrintHelp"
+    $ waf --run "trafficgen --PrintHelp"
 
 ### Docker
 
@@ -46,11 +46,11 @@ Afterwards, you can run everything:
 
 Or individual experiments (you can append parameters):
 
-    $ ./docker-run.sh waf --run shift
-    $ ./docker-run.sh waf --run "shift --w1=0"
+    $ ./docker-run.sh waf --run trafficgen
+    $ ./docker-run.sh waf --run "trafficgen --w1=0"
 
 Check all available parameters:
 
-    $ ./docker-run.sh waf --run "shift --PrintHelp"
+    $ ./docker-run.sh waf --run "trafficgen --PrintHelp"
 
 If you need to clean up and remove the container, use `docker rm --force fitnets-runner`.
