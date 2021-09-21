@@ -15,7 +15,7 @@ function run {
 }
 
 # Repeat 22 times with different RNG to have plenty of data.
-for run in {0..30}; do
+for run in {0..21}; do
 
 # Simulate different traffic mixes
 run $run "w1_$run" --w1=1 --w2=0 --w3=0 --congestion=0
