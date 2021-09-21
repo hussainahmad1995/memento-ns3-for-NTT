@@ -18,16 +18,18 @@ function exprun {
     # First arg: rng run, secong arg: experiment name.
     # Run with some default settings
     cmd="NS_GLOBAL_VALUE=\"RngRun=$1\" waf --run-no-build \"trafficgen ${@:3} --apps=20 --apprate=1Mbps --linkrate=30Mbps --prefix=$resultdir/$2_$1\""
-    echo "STARTING $2($1)"
-    output=$(eval $cmd 2>&1)
-    output="OUTPUT $2($1)\n${output}\n"
+    echo "STARTING $2($1):"
+    echo "$cmd"
+    #output=$(eval "$cmd" 2>&1)
+    output="OUTPUT $2($1):\n${output}\n"
     printf "$output"
 }
 export -f exprun   # make it visible for xargs
 export resultdir   # same same
 
 function run {  # First argument is experiment name, others are passed through.
-    seq 0 $maxrun | xargs --max-procs $procs -n1 -I % bash -c "exprun % $@"
+    args=$@
+    seq 0 $maxrun | xargs --max-procs $procs -n1 -I {} bash -c "exprun {} $args"
 }
 
 
