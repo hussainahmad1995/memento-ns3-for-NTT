@@ -19,6 +19,8 @@
 //                               disturbance
 //                                  |
 //        sender --- switchA --- switchB --- receiver
+//        sender --/
+//        ....
 //
 //  The "disturbance" host is used to introduce changes in the network
 //  conditions.
@@ -86,9 +88,16 @@ void logPacketInfo(Ptr<OutputStreamWrapper> stream, Ptr<Packet const> p)
     }
     else
     {
-        //NS_LOG_DEBUG("Packet without timestamp, won't log.");
+        // NS_LOG_DEBUG("Packet without timestamp, won't log.");
     };
 };
+
+void logValue(Ptr<OutputStreamWrapper> stream, uint32_t oldval, uint32_t newval)
+{
+    auto current_time = Simulator::Now();
+    *stream->GetStream() << current_time.GetSeconds() << ','
+                         << newval << std::endl;
+}
 
 // TODO: Add base stream? Or how to get different random streams?
 Ptr<RandomVariableStream> TimeStream(double min = 0.0, double max = 1.0)
@@ -128,9 +137,10 @@ int main(int argc, char *argv[])
     //
 
     int n_apps = 10;
-    DataRate linkrate("5Mbps");
-    DataRate baserate("100kbps");
-    DataRate congestion("0Mbps");
+    DataRate linkrate("1MBps");
+    DataRate baserate("100kBps");
+    DataRate congestion("0MBps");
+    Time delay("5ms");
     std::string basedir = "./distributions/";
     std::string w1 = basedir + "Facebook_WebServerDist_IntraCluster.txt";
     std::string w2 = basedir + "DCTCP_MsgSizeDist.txt";
@@ -144,6 +154,7 @@ int main(int argc, char *argv[])
     cmd.AddValue("apps", "Number of traffic apps per workload.", n_apps);
     cmd.AddValue("apprate", "Base traffic rate for each app.", baserate);
     cmd.AddValue("linkrate", "Link capacity rate.", linkrate);
+    cmd.AddValue("linkdelay", "Link delay.", delay);
     cmd.AddValue("w1", "Factor for W1 traffic (FB webserver).", c_w1);
     cmd.AddValue("w2", "Factor for W2 traffic (DCTCP messages).", c_w2);
     cmd.AddValue("w3", "Factor for W3 traffic (FB hadoop).", c_w3);
@@ -178,18 +189,23 @@ int main(int argc, char *argv[])
 
     // Fix MTU and Segment size, otherwise the small TCP default (536) is used.
     Config::SetDefault("ns3::CsmaNetDevice::Mtu", UintegerValue(1500));
-    Config::SetDefault("ns3::TcpSocket::SegmentSize", UintegerValue(1380));
+
+    // Tcp Socket (general socket conf)
+    Config::SetDefault("ns3::TcpSocket::SndBufSize", UintegerValue(4000000));
+    Config::SetDefault("ns3::TcpSocket::RcvBufSize", UintegerValue(4000000));
+    Config::SetDefault("ns3::TcpSocket::SegmentSize", UintegerValue(1446)); // MTU 1446
 
     //
     // Explicitly create the nodes required by the topology (shown above).
     //
     NS_LOG_INFO("Create nodes.");
+    NodeContainer senders;
+    senders.Create(3 * n_apps);
+    // receiver, and disturbance
     NodeContainer hosts;
-    hosts.Create(3);
-    // Keep references to sender, receiver, and disturbance
-    auto sender = hosts.Get(0);
-    auto receiver = hosts.Get(1);
-    auto disturbance = hosts.Get(2);
+    hosts.Create(2);
+    auto receiver = hosts.Get(0);
+    auto disturbance = hosts.Get(1);
 
     NodeContainer switches;
     switches.Create(2);
@@ -200,13 +216,18 @@ int main(int argc, char *argv[])
     CsmaHelper csma;
     csma.SetChannelAttribute("FullDuplex", BooleanValue(true));
     csma.SetChannelAttribute("DataRate", DataRateValue(linkrate));
-    csma.SetChannelAttribute("Delay", TimeValue(MilliSeconds(5)));
+    csma.SetChannelAttribute("Delay", TimeValue(delay));
 
     // Create the csma links
-    csma.Install(NodeContainer(sender, switchA));
+    for (auto it = senders.Begin(); it != senders.End(); it++)
+    {
+        Ptr<Node> sender = *it;
+        csma.Install(NodeContainer(sender, switchA));
+    }
     csma.Install(NodeContainer(receiver, switchB));
     csma.Install(NodeContainer(disturbance, switchB));
-    csma.Install(NodeContainer(switchA, switchB));
+    auto switchdevices = csma.Install(NodeContainer(switchA, switchB));
+    auto switchAnetdevice = switchdevices.Get(0)->GetObject<CsmaNetDevice>();
 
     // Create the bridge netdevice, turning the nodes into actual switches
     BridgeHelper bridge;
@@ -216,17 +237,22 @@ int main(int argc, char *argv[])
     // Add internet stack and IP addresses to the hosts
     NS_LOG_INFO("Setup stack and assign IP Addresses.");
     NetDeviceContainer hostDevices;
-    hostDevices.Add(GetNetDevices(sender));
-    hostDevices.Add(GetNetDevices(receiver));
+    hostDevices.Add(GetNetDevices(receiver)); // Needs to be first to get addr.
+    for (auto it = senders.Begin(); it != senders.End(); it++)
+    {
+        Ptr<Node> sender = *it;
+        hostDevices.Add(GetNetDevices(sender));
+    }
     hostDevices.Add(GetNetDevices(disturbance));
 
     InternetStackHelper internet;
+    internet.Install(senders);
     internet.Install(hosts);
     Ipv4AddressHelper ipv4;
     ipv4.SetBase("10.1.1.0", "255.255.255.0");
     auto addresses = ipv4.Assign(hostDevices);
-    // Get Address: Device with index 0/1, address 0 (only one address)
-    auto addrReceiver = addresses.GetAddress(1, 0);
+    // Get Address: Device with index 0, address 0 (only one address)
+    auto addrReceiver = addresses.GetAddress(0, 0);
 
     NS_LOG_INFO("Create Traffic Applications.");
     uint16_t base_port = 4200; // Note: We need two ports per pair
@@ -249,36 +275,39 @@ int main(int argc, char *argv[])
         // App indexing scheme: 0--n_apps-1: w1, n_apps -- 2n_apps-1: w2, etc.
         if (rate_w1 > 0)
         {
+            auto _id = i_app;
             Ptr<CdfApplication> source1 = CreateObjectWithAttributes<CdfApplication>(
                 "Remote", recvAddr, "Protocol", TCP,
                 "DataRate", DataRateValue(rate_w1), "CdfFile", StringValue(w1),
                 "StartTime", TimeValue(Seconds(trafficStart->GetValue())),
                 "StopTime", simStop);
             source1->TraceConnectWithoutContext(
-                "Tx", MakeBoundCallback(&setIdTag, 1, i_app));
-            sender->AddApplication(source1);
+                "Tx", MakeBoundCallback(&setIdTag, 1, _id));
+            senders.Get(_id)->AddApplication(source1);
         }
         if (rate_w2 > 0)
         {
+            auto _id = i_app + n_apps;
             Ptr<CdfApplication> source2 = CreateObjectWithAttributes<CdfApplication>(
                 "Remote", recvAddr, "Protocol", TCP,
                 "DataRate", DataRateValue(rate_w2), "CdfFile", StringValue(w2),
                 "StartTime", TimeValue(Seconds(trafficStart->GetValue())),
                 "StopTime", simStop);
             source2->TraceConnectWithoutContext(
-                "Tx", MakeBoundCallback(&setIdTag, 2, i_app + n_apps));
-            sender->AddApplication(source2);
+                "Tx", MakeBoundCallback(&setIdTag, 2, _id));
+            senders.Get(_id)->AddApplication(source2);
         }
         if (rate_w3 > 0)
         {
+            auto _id = i_app + (2 * n_apps);
             Ptr<CdfApplication> source3 = CreateObjectWithAttributes<CdfApplication>(
                 "Remote", recvAddr, "Protocol", TCP,
                 "DataRate", DataRateValue(rate_w3), "CdfFile", StringValue(w3),
                 "StartTime", TimeValue(Seconds(trafficStart->GetValue())),
                 "StopTime", simStop);
             source3->TraceConnectWithoutContext(
-                "Tx", MakeBoundCallback(&setIdTag, 3, i_app + (2 * n_apps)));
-            sender->AddApplication(source3);
+                "Tx", MakeBoundCallback(&setIdTag, 3, _id));
+            senders.Get(_id)->AddApplication(source3);
         }
     }
 
@@ -313,12 +342,21 @@ int main(int argc, char *argv[])
     // trackfilename << prefix << "_delays.csv";
     trackfilename << prefix << ".csv"; // only one file for now.
     auto trackfile = asciiTraceHelper.CreateFileStream(trackfilename.str());
-    sender->GetDevice(0)->TraceConnectWithoutContext(
-        "MacTx", MakeCallback(&setTimeTag));
+    for (auto it = senders.Begin(); it != senders.End(); it++)
+    {
+        Ptr<Node> sender = *it;
+        sender->GetDevice(0)->TraceConnectWithoutContext(
+            "MacTx", MakeCallback(&setTimeTag));
+    }
     receiver->GetDevice(0)->TraceConnectWithoutContext(
         "MacRx", MakeBoundCallback(&logPacketInfo, trackfile));
 
-    //csma.EnablePcapAll("csma-bridge", false);
+    // Track queue at bridge
+    auto queuefile = asciiTraceHelper.CreateFileStream("queue.csv");
+    switchAnetdevice->GetQueue()->TraceConnectWithoutContext(
+        "PacketsInQueue", MakeBoundCallback(&logValue, queuefile));
+
+    // csma.EnablePcapAll("csma-bridge", false);
 
     //
     // Now, do the actual simulation.
