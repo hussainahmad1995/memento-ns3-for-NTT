@@ -20,7 +20,8 @@
 //                                  |
 //        sender --- switchA --- switchB --- receiver
 //        sender --/
-//        ....
+//        sender --/
+//        (...)
 //
 //  The "disturbance" host is used to introduce changes in the network
 //  conditions.
@@ -92,12 +93,21 @@ void logPacketInfo(Ptr<OutputStreamWrapper> stream, Ptr<Packet const> p)
     };
 };
 
-void logValue(Ptr<OutputStreamWrapper> stream, uint32_t oldval, uint32_t newval)
+void logValue(Ptr<OutputStreamWrapper> stream, std::string context,
+              uint32_t oldval, uint32_t newval)
 {
     auto current_time = Simulator::Now();
-    *stream->GetStream() << current_time.GetSeconds() << ','
+    *stream->GetStream() << context << ',' << current_time.GetSeconds() << ','
                          << newval << std::endl;
 }
+
+void logDrop(Ptr<OutputStreamWrapper> stream,
+             std::string context, Ptr<Packet const> p)
+{
+    auto current_time = Simulator::Now();
+    *stream->GetStream() << context << ',' << current_time.GetSeconds() << ','
+                         << p->GetSize() << std::endl;
+};
 
 // TODO: Add base stream? Or how to get different random streams?
 Ptr<RandomVariableStream> TimeStream(double min = 0.0, double max = 1.0)
@@ -137,10 +147,13 @@ int main(int argc, char *argv[])
     //
 
     int n_apps = 10;
+    int start_window = 1;
     DataRate linkrate("1MBps");
     DataRate baserate("100kBps");
     DataRate congestion("0MBps");
     Time delay("5ms");
+    QueueSize queuesize("100p");
+
     std::string basedir = "./distributions/";
     std::string w1 = basedir + "Facebook_WebServerDist_IntraCluster.txt";
     std::string w2 = basedir + "DCTCP_MsgSizeDist.txt";
@@ -152,9 +165,11 @@ int main(int argc, char *argv[])
 
     CommandLine cmd;
     cmd.AddValue("apps", "Number of traffic apps per workload.", n_apps);
+    cmd.AddValue("startwindow", "Maximum diff in start time.", start_window);
     cmd.AddValue("apprate", "Base traffic rate for each app.", baserate);
     cmd.AddValue("linkrate", "Link capacity rate.", linkrate);
     cmd.AddValue("linkdelay", "Link delay.", delay);
+    cmd.AddValue("queuesize", "Bottleneck queue size.", queuesize);
     cmd.AddValue("w1", "Factor for W1 traffic (FB webserver).", c_w1);
     cmd.AddValue("w2", "Factor for W2 traffic (DCTCP messages).", c_w2);
     cmd.AddValue("w3", "Factor for W3 traffic (FB hadoop).", c_w3);
@@ -199,6 +214,11 @@ int main(int argc, char *argv[])
     // Explicitly create the nodes required by the topology (shown above).
     //
     NS_LOG_INFO("Create nodes.");
+    NodeContainer switches;
+    switches.Create(2);
+    auto switchA = switches.Get(0);
+    auto switchB = switches.Get(1);
+
     NodeContainer senders;
     senders.Create(3 * n_apps);
     // receiver, and disturbance
@@ -207,11 +227,6 @@ int main(int argc, char *argv[])
     auto receiver = hosts.Get(0);
     auto disturbance = hosts.Get(1);
 
-    NodeContainer switches;
-    switches.Create(2);
-    auto switchA = switches.Get(0);
-    auto switchB = switches.Get(1);
-
     NS_LOG_INFO("Build Topology");
     CsmaHelper csma;
     csma.SetChannelAttribute("FullDuplex", BooleanValue(true));
@@ -219,15 +234,19 @@ int main(int argc, char *argv[])
     csma.SetChannelAttribute("Delay", TimeValue(delay));
 
     // Create the csma links
+    csma.Install(NodeContainer(receiver, switchB));
+    csma.Install(NodeContainer(disturbance, switchB));
+    csma.Install(NodeContainer(switchA, switchB));
     for (auto it = senders.Begin(); it != senders.End(); it++)
     {
         Ptr<Node> sender = *it;
         csma.Install(NodeContainer(sender, switchA));
     }
-    csma.Install(NodeContainer(receiver, switchB));
-    csma.Install(NodeContainer(disturbance, switchB));
-    auto switchdevices = csma.Install(NodeContainer(switchA, switchB));
-    auto switchAnetdevice = switchdevices.Get(0)->GetObject<CsmaNetDevice>();
+
+    // Update queuesize
+    Config::Set(
+        "/NodeList/0/DeviceList/0/$ns3::CsmaNetDevice/TxQueue/MaxSize",
+        QueueSizeValue(queuesize));
 
     // Create the bridge netdevice, turning the nodes into actual switches
     BridgeHelper bridge;
@@ -249,14 +268,14 @@ int main(int argc, char *argv[])
     internet.Install(senders);
     internet.Install(hosts);
     Ipv4AddressHelper ipv4;
-    ipv4.SetBase("10.1.1.0", "255.255.255.0");
+    ipv4.SetBase("10.1.0.0", "255.255.0.0");
     auto addresses = ipv4.Assign(hostDevices);
     // Get Address: Device with index 0, address 0 (only one address)
     auto addrReceiver = addresses.GetAddress(0, 0);
 
     NS_LOG_INFO("Create Traffic Applications.");
     uint16_t base_port = 4200; // Note: We need two ports per pair
-    auto trafficStart = TimeStream(1, 2);
+    auto trafficStart = TimeStream(1, 1 + start_window);
     for (auto i_app = 0; i_app < n_apps; ++i_app)
     {
         // We also need to set the appropriate tag at every application!
@@ -351,10 +370,16 @@ int main(int argc, char *argv[])
     receiver->GetDevice(0)->TraceConnectWithoutContext(
         "MacRx", MakeBoundCallback(&logPacketInfo, trackfile));
 
-    // Track queue at bridge
+    // Track queues
     auto queuefile = asciiTraceHelper.CreateFileStream("queue.csv");
-    switchAnetdevice->GetQueue()->TraceConnectWithoutContext(
-        "PacketsInQueue", MakeBoundCallback(&logValue, queuefile));
+    Config::Connect(
+        "/NodeList/*/DeviceList/*/$ns3::CsmaNetDevice/TxQueue/PacketsInQueue",
+        MakeBoundCallback(&logValue, queuefile));
+
+    auto dropfile = asciiTraceHelper.CreateFileStream("drops.csv");
+    Config::Connect(
+        "/NodeList/*/DeviceList/*/$ns3::CsmaNetDevice/MacTxDrop",
+        MakeBoundCallback(&logDrop, dropfile));
 
     // csma.EnablePcapAll("csma-bridge", false);
 
