@@ -42,12 +42,15 @@
 #include "ns3/string.h"
 #include "ns3/pointer.h"
 #include "ns3/double.h"
+#include "ns3/tag.h"
 
 #include "cdf-application.h"
+#include "ns3/experiment-tags.h"
 
 namespace ns3
-{
 
+{
+    
   NS_LOG_COMPONENT_DEFINE("CdfApplication");
 
   NS_OBJECT_ENSURE_REGISTERED(CdfApplication);
@@ -95,7 +98,8 @@ namespace ns3
         m_lastStartTime(Seconds(0)),
         m_average_size(0),
         m_sizeDist(CreateObject<EmpiricalRandomVariable>()),
-        m_timeDist(CreateObject<ExponentialRandomVariable>())
+        m_timeDist(CreateObject<ExponentialRandomVariable>()),
+        m_counter(0)
   {
     NS_LOG_FUNCTION(this);
   }
@@ -217,6 +221,10 @@ namespace ns3
     NS_ASSERT(m_sendEvent.IsExpired());
     Ptr<Packet> packet = Create<Packet>(size);
     m_txTrace(packet);
+
+    MessageTag m_tag;
+    m_tag.SetSimpleValue(m_counter++);
+    packet->AddPacketTag(m_tag);
     m_socket->Send(packet);
     Address localAddress;
     m_socket->GetSockName(localAddress);

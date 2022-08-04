@@ -104,4 +104,56 @@ private:
     u_int32_t application;
 };
 
+// A tag to check message ids and see if they are preserved across fragments
+class MessageTag : public Tag
+{
+    public:
+        
+    static TypeId GetTypeId (void)
+    {
+    static TypeId tid = TypeId ("ns3::MessageTag")
+        .SetParent<Tag> ()
+        .AddConstructor<MessageTag> ()
+        .AddAttribute ("SimpleValue",
+                    "A simple value",
+                    EmptyAttributeValue (),
+                    MakeUintegerAccessor (&MessageTag::m_simpleValue),
+                    MakeUintegerChecker<uint8_t> ());
+    return tid;
+    }
+    TypeId GetInstanceTypeId(void) const
+    {
+        return GetTypeId();
+    }
+    uint32_t GetSerializedSize(void) const
+    {
+        return sizeof(m_simpleValue);
+    }
+    void Serialize(TagBuffer i) const
+    {
+        i.Write(reinterpret_cast<const uint8_t *>(&m_simpleValue),
+                sizeof(m_simpleValue));
+    }
+    void Deserialize(TagBuffer i)
+    {
+        i.Read(reinterpret_cast<uint8_t *>(&m_simpleValue),
+                sizeof(m_simpleValue));
+    }
+    void Print(std::ostream &os) const
+    {
+        os << "v=" << (uint32_t)m_simpleValue;
+    }
+    void SetSimpleValue(uint32_t value)
+    {
+        m_simpleValue = value;
+    }
+    uint32_t GetSimpleValue(void) const
+    {
+        return m_simpleValue;
+    }
+
+    private:
+        uint32_t m_simpleValue;  
+};
+
 #endif // EXPERIMENT_TAGS_H
