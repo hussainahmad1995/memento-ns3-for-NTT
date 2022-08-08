@@ -1,5 +1,10 @@
 /* Tags for tracking simulation info.
 */
+
+// Original Author: Alexander Dietmüller
+// Modified by : Siddhant Ray
+// Added Message tag class to track message IDs after packet generation from message distributions
+
 #ifndef EXPERIMENT_TAGS_H
 #define EXPERIMENT_TAGS_H
 

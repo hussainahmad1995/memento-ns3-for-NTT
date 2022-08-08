@@ -1,6 +1,10 @@
 #! /bin/bash
 
-project="generator"
+# Original Author: Alexander Dietmüller
+# Modified by : Siddhant Ray
+# Updated run script to work for NTT data generator
+
+project="ntt-generator"
 name="${project}-runner"
 
 # Get the current script directory, no matter where we are called from.

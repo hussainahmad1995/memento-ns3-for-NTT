@@ -1,10 +1,10 @@
-# ns3-fitnets
+# NTT-data-generator
 
-Distribution shift experiments with ns-3.
+Distribution shift experiments with ns-3 for data generation to train and evaluate the Network Traffic Transformer (NTT).
 
 ## Overview
 
-- `generator/` An ns-3 module containing simulation helpers to generate traffic with specific CDF workloads.
+- `ntt-generator/` An ns-3 module containing simulation helpers to generate traffic with specific CDF workloads.
 - `simulation/` Simulation scripts.
 
 ## Running the simulations
@@ -17,20 +17,19 @@ Before you run the simulations for the first time, you need to configure ns-3:
 
     $ waf configure
 
-Afterwards, you can run everything:
+For the small topology:
 
-    $ run_experiments.sh
+    $ ./run_topo_small.sh <args>
 
-Or individual experiments (you can append parameters):
+For the larger topology:
 
-    $ waf --run trafficgen
-    $ waf --run "trafficgen --w1=0"
+    $ ./run_topo.sh <args>
 
 Check all available parameters:
 
     $ waf --run "trafficgen --PrintHelp"
 
-### Docker
+### Docker (Preferred method)
 
 Use the `./docker-run.sh` script to run the simulations in a ns-3 environment.
 The first time you run the script, it will take some time to download and start
@@ -40,17 +39,20 @@ Before you run the simulations for the first time, you need to configure ns-3:
 
     $ ./docker-run.sh waf configure
 
-Afterwards, you can run everything:
+Afterwards, you can run everything to generate the data for the NTT, with the following self contained scripts:
 
-    $ ./docker-run.sh run_experiments.sh
+For the small topology:
 
-Or individual experiments (you can append parameters):
+    $ ./run_topo_small.sh <args>
 
-    $ ./docker-run.sh waf --run trafficgen
-    $ ./docker-run.sh waf --run "trafficgen --w1=0"
+For the larger topology:
 
-Check all available parameters:
+    $ ./run_topo.sh <args>
+
+Please refer to the comments in the run scripts in order to generate variations and multiple runs of pre-training and fine-tuning data.
+
+You can check all available parameters:
 
     $ ./docker-run.sh waf --run "trafficgen --PrintHelp"
 
-If you need to clean up and remove the container, use `docker rm --force fitnets-runner`.
+If you need to clean up and remove the container, use `docker rm --force ntt-generator-runner`.

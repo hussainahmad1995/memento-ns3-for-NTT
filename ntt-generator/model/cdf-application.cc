@@ -22,6 +22,10 @@
 // George F. Riley, Georgia Tech, Spring 2007
 // Adapted from ApplicationOnOff in GTNetS.
 
+// Original Author: Alexander Dietmüller
+// Modified by : Siddhant Ray
+// Added message tag and counter for MCT data for prediction using the NTT
+
 #include "fstream"
 #include "ns3/log.h"
 #include "ns3/address.h"

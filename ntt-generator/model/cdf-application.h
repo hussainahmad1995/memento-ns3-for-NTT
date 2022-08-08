@@ -23,6 +23,10 @@
 // George F. Riley, Georgia Tech, Spring 2007
 // Adapted from ApplicationOnOff in GTNetS.
 
+// Original Author: Alexander Dietmüller
+// Modified by : Siddhant Ray
+// Added m_counter object variable to keep track of the number of message IDs
+
 #ifndef CDF_APPLICATION_H
 #define CDF_APPLICATION_H
 

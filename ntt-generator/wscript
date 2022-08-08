@@ -1,19 +1,23 @@
 ## -*- Mode: python; py-indent-offset: 4; indent-tabs-mode: nil; coding: utf-8; -*-
+# Original author: Alexander Dietmüller
+# Modified by: Siddhant Ray
+
+# Modify generator -> ntt-generator in order to build ns3 modules
 
 def build(bld):
-    module = bld.create_ns3_module('generator', ['internet', 'config-store','stats'])
+    module = bld.create_ns3_module('ntt-generator', ['internet', 'config-store','stats'])
     module.source = [
         'model/probing-client.cc',
         'model/probing-server.cc',
         'model/cdf-application.cc',
         ]
 
-    fitnets_test = bld.create_ns3_module_test_library('generator')
+    fitnets_test = bld.create_ns3_module_test_library('ntt-generator')
     fitnets_test.source = [
         ]
 
     headers = bld(features='ns3header')
-    headers.module = 'generator'
+    headers.module = 'ntt-generator'
     headers.source = [
         'model/probing-client.h',
         'model/probing-server.h',

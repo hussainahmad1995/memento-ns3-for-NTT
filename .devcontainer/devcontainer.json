@@ -1,3 +1,8 @@
+// Original author: Alexander Dietmüller
+// Modified by: Siddhant Ray
+
+// Replace generator -> ntt-generator
+
 {
 	"name": "ns-3",
 	"dockerFile": "Dockerfile",
@@ -9,7 +14,7 @@
 	"mounts": [
 		// Mount current folder into ns3 scratch directory so waf can find it
 		"source=${localWorkspaceFolder}/simulation,target=/ns3/scratch,type=bind,consistency=cached",
-		"source=${localWorkspaceFolder}/generator,target=/ns3/src/generator,type=bind,consistency=cached"
+		"source=${localWorkspaceFolder}/ntt-generator,target=/ns3/src/ntt-generator,type=bind,consistency=cached"
 	],
 	// Set *default* container specific settings.json values on container create.
 	"settings": {
