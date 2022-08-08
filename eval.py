@@ -11,7 +11,7 @@ import matplotlib as mpl
 from matplotlib.ticker import FormatStrFormatter
 
 BIG = False
-TEST = True
+TEST = True # Marked true for fine-tuning data with multiple bottlenecks
 val = sys.argv[1]
 
 sns.set_theme("paper", "whitegrid", font_scale=1.5)
@@ -33,12 +33,12 @@ mpl.rcParams.update({
 })
 
 if not TEST:
-    frame = pd.read_csv("small_test_no_disturbance{}.csv".format(val))
+    frame = pd.read_csv("results/small_test_no_disturbance_with_message_ids.csv".format(val))
 else:
     if not BIG:
-        frame = pd.read_csv("small_test_one_disturbance_with_message_ids{}.csv".format(val))
+        frame = pd.read_csv("results/small_test_one_disturbance_with_message_ids{}.csv".format(val))
     else:
-        frame = pd.read_csv("large_test_disturbance_with_message_ids{}.csv".format(val))
+        frame = pd.read_csv("results/large_test_disturbance_with_message_ids{}.csv".format(val))
 
 # Get the time stamp, packet size and delay (from my format, Alex uses a different format)
 frame = frame[frame.columns[[1,7,-8]]]
@@ -70,7 +70,7 @@ frame['delay'].quantile([0.5, 0.99])
 
 throughput = frame.loc[frame['t'] > 20, 'size'].sum() / 40 / (1024*1024)  # in MBps
 
-queueframe = pd.read_csv("queue.csv", names=["source", "time", "size"])
+queueframe = pd.read_csv("results/queue.csv", names=["source", "time", "size"])
 
 bottleneck_source = "/NodeList/0/DeviceList/0/$ns3::CsmaNetDevice/TxQueue/PacketsInQueue"
 bottleneck_queue = queueframe[queueframe["source"] == bottleneck_source]
@@ -131,6 +131,6 @@ for value in values:
     scs.fig.tight_layout()
     plt.savefig(save_name) 
 
-dropframe = pd.read_csv("drops.csv", names=["source", "time", "packetsize"])
+dropframe = pd.read_csv("results/drops.csv", names=["source", "time", "packetsize"])
 
 print("Drop fraction:", len(dropframe) / (len(dropframe) + len(frame)))
