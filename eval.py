@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 import matplotlib as mpl
 from matplotlib.ticker import FormatStrFormatter
 
-BIG = False
+BIG = True
 TEST = True # Marked true for fine-tuning data with multiple bottlenecks
 val = sys.argv[1]
 
@@ -63,7 +63,7 @@ plt.xlim([0,0.5])
 plt.ylim(bottom=0)
 # Tight layout
 sbs.fig.tight_layout()
-plt.savefig("delay"+".pdf")
+plt.savefig("results/delay"+".pdf")
 
 
 frame['delay'].quantile([0.5, 0.99])
@@ -87,7 +87,7 @@ scs = sns.relplot(
 )
 
 scs.fig.suptitle('Bottleneck queue plot with multiple senders')
-plt.savefig("Queuesize"+".pdf")
+plt.savefig("results/Queuesize"+".pdf")
 
 ## Bottleneck plots for switches A, B, D, G
 
@@ -127,10 +127,37 @@ for value in values:
     plt.xlim([0,60])
     plt.ylim([0,1000])
     
-    save_name = "Queue profile on switch {}".format(dict_switches[value]) + ".pdf"
+    save_name = "results/Queue profile on switch {}".format(dict_switches[value]) + ".pdf"
     scs.fig.tight_layout()
     plt.savefig(save_name) 
 
 dropframe = pd.read_csv("results/drops.csv", names=["source", "time", "packetsize"])
 
 print("Drop fraction:", len(dropframe) / (len(dropframe) + len(frame)))
+
+## Plot delay distribution for each receiver
+new_frame = pd.read_csv("results/large_test_disturbance_with_message_ids{}.csv".format(val))
+new_frame = new_frame[new_frame.columns[[1,7, 23, -8]]]
+new_frame.columns = ["t", "size", "dest ip", "delay"]
+print(new_frame.head())
+
+gb = new_frame.groupby('dest ip')    
+groups = [gb.get_group(x) for x in gb.groups]
+print(groups)
+
+for idx, group in enumerate(groups):
+    print(idx, group.shape)
+    plt.figure(figsize=(5,5))
+    scs = sns.displot(
+            data=group,
+            kind='ecdf',
+            x='delay',
+            legend=False
+        )
+
+    scs.fig.suptitle('Delay plot on receiver {} '.format(idx+1))
+    scs.set(xlabel='Delay', ylabel='Fraction of packets')
+    plt.xlim([0,0.5])
+    # Tight layout
+    scs.fig.tight_layout()
+    plt.savefig("results/delay_Receiver{}".format(idx)+".pdf")
