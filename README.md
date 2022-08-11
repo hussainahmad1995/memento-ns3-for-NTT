@@ -29,7 +29,7 @@ Check all available parameters:
 
     $ waf --run "trafficgen --PrintHelp"
 
-### Docker (Preferred method)
+### Native Docker (Preferred method)
 
 Use the `./docker-run.sh` script to run the simulations in a ns-3 environment.
 The first time you run the script, it will take some time to download and start
@@ -56,3 +56,5 @@ You can check all available parameters:
     $ ./docker-run.sh waf --run "trafficgen --PrintHelp"
 
 If you need to clean up and remove the container, use `docker rm --force ntt-generator-runner`.
+
+The outputs of the simulation will always be in a folder called `results`, and this folder can be moved to the relevant directories for the NTT training.

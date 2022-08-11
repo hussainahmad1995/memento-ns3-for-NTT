@@ -33,7 +33,7 @@ mpl.rcParams.update({
 })
 
 if not TEST:
-    frame = pd.read_csv("results/small_test_no_disturbance_with_message_ids.csv".format(val))
+    frame = pd.read_csv("results/small_test_no_disturbance_with_message_ids{}.csv".format(val))
 else:
     if not BIG:
         frame = pd.read_csv("results/small_test_one_disturbance_with_message_ids{}.csv".format(val))
