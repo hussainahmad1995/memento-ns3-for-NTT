@@ -29,6 +29,8 @@ Check all available parameters:
 
     $ waf --run "trafficgen --PrintHelp"
 
+Note: I have not tested this workflow myself for the NTT dataset generation, so I would advise the second method below.
+
 ### Native Docker (Preferred method)
 
 Use the `./docker-run.sh` script to run the simulations in a ns-3 environment.
@@ -41,11 +43,11 @@ Before you run the simulations for the first time, you need to configure ns-3:
 
 Afterwards, you can run everything to generate the data for the NTT, with the following self contained scripts:
 
-For the small topology:
+For the small topology, with one or two bottlenecks:
 
     $ ./run_topo_small.sh <args>
 
-For the larger topology:
+For the larger topology, with multi-path and four bottlenecks:
 
     $ ./run_topo.sh <args>
 
