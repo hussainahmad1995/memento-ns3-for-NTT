@@ -29,7 +29,7 @@ Check all available parameters:
 
     $ waf --run "trafficgen --PrintHelp"
 
-Note: I have not tested this workflow myself for the NTT dataset generation, so I would advise the second method below.
+Note: I have not tested this VSCode environment's settings or workflow myself for the NTT dataset generation, so I would advise the second method below.
 
 ### Native Docker (Preferred method)
 
@@ -52,6 +52,7 @@ For the larger topology, with multi-path and four bottlenecks:
     $ ./run_topo.sh <args>
 
 Please refer to the comments in the run scripts in order to generate variations and multiple runs of pre-training and fine-tuning data.
+To generate multiple runs of either kind of data, you need to pass the `seed` argument, which varies the start-times of the flows, using a uniform distribution and thus causes differences in flow interactions, leading to different network dynamics.
 
 You can check all available parameters:
 
