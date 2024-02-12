@@ -10,27 +10,27 @@ import matplotlib.pyplot as plt
 import matplotlib as mpl
 from matplotlib.ticker import FormatStrFormatter
 
-BIG = True
+BIG = False # Marked true for large test data
 TEST = True # Marked true for fine-tuning data with multiple bottlenecks
 val = sys.argv[1]
 
-sns.set_theme("paper", "whitegrid", font_scale=1.5)
-mpl.rcParams.update({
-    'text.usetex': True,
-    'font.family': 'serif',
-    'text.latex.preamble': r'\usepackage{amsmath,amssymb}',
+# sns.set_theme("paper", "whitegrid", font_scale=1.5)
+# mpl.rcParams.update({
+#     'text.usetex': True,
+#     'font.family': 'serif',
+#     'text.latex.preamble': r'\usepackage{amsmath,amssymb}',
 
-    'lines.linewidth': 2,
-    'lines.markeredgewidth': 0,
+#     'lines.linewidth': 2,
+#     'lines.markeredgewidth': 0,
 
-    'scatter.marker': '.',
-    'scatter.edgecolors': 'none',
+#     'scatter.marker': '.',
+#     'scatter.edgecolors': 'none',
 
-    # Set image quality and reduce whitespace around saved figure.
-    'savefig.dpi': 300,
-    'savefig.bbox': 'tight',
-    'savefig.pad_inches': 0.01,
-})
+#     # Set image quality and reduce whitespace around saved figure.
+#     'savefig.dpi': 300,
+#     'savefig.bbox': 'tight',
+#     'savefig.pad_inches': 0.01,
+# })
 
 if not TEST:
     frame = pd.read_csv("results/small_test_no_disturbance_with_message_ids{}.csv".format(val))
@@ -124,8 +124,8 @@ for value in values:
     scs.fig.suptitle('Bottleneck queue on switch {} '.format(dict_switches[value]))
     scs.fig.suptitle('Queue on bottleneck switch')
     scs.set(xlabel='Simulation Time (seconds)', ylabel='Queue Size (packets)')
-    plt.xlim([0,60])
-    plt.ylim([0,1000])
+    plt.xlim([0,10])
+    plt.ylim([0,100])
     
     save_name = "results/Queue profile on switch {}".format(dict_switches[value]) + ".pdf"
     scs.fig.tight_layout()

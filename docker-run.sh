@@ -22,7 +22,7 @@ docker run \
     -v "${dir}/${project}:/ns3/src/${project}" \
     -v "${dir}:/home" \
     -w "/home" \
-    "notspecial/ns-3-dev" > /dev/null 2>&1 && \
+    "siddhantray/ns3-3.34:latest" > /dev/null 2>&1 && \
 # After building, set permissions to user.
 docker exec $name chown -R $uid /ns3 /home
 
