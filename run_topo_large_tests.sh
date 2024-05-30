@@ -20,12 +20,12 @@
 # If running inside the VSCode's environment to run Docker containers: Replace ./docker-run.sh waf with just waf 
 
 mkdir -p results_test
-./docker-run.sh waf --run "trafficgen_small_tests
+./docker-run.sh waf --run "trafficgen_large_tests
                     --topo=$1
-                    --apps=2
+                    --apps=1
                     --apprate=1Mbps
-                    --startwindow=10
-                    --queuesize=50p
+                    --startwindow=5
+                    --queuesize=100p
                     --linkrate=5Mbps
                     --linkdelay=5ms
                     --w1=1
@@ -33,6 +33,8 @@ mkdir -p results_test
                     --w3=1
                     --cc=ns3::TcpCubic
                     --congestion1=$2Mbps
-                    --prefix=results_test/small_test_no_disturbance_with_message_ids$3
-                    --seed=$3"
+                    --congestion2=$3Mbps
+                    --congestion3=$4Mbps
+                    --prefix=results_test_large/small_test_no_disturbance_with_message_ids$5
+                    --seed=$5"
 

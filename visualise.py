@@ -185,17 +185,19 @@ def configure_sender_csv(path, sender_list):
     df = pd.read_csv(path + sender_list[0])
     # Drop columns 1 and 3
 
-    df.drop(df.columns[[0, 2]], axis=1, inplace=True)
+    df.drop(df.columns[[0, 2, 4, 6]], axis=1, inplace=True)
 
     # Rename columns
     df.columns = [
         "Timestamp",
         "Packet Size",
+        "Packet ID",
+        "TCP Sequence Number",
         "Blank",
     ]
 
     # Drop the blank column
-    df.drop(df.columns[[2]], axis=1, inplace=True)
+    df.drop(df.columns[[-1]], axis=1, inplace=True)
 
     # Save as final csv
     df.to_csv(path + sender_list[0].split(".")[0] + "_final.csv", index=False)
@@ -293,6 +295,8 @@ def get_args():
     parser.add_argument("--rst", type=bool, default=False)
     parser.add_argument("--infinitedata", type=bool, default=False)
     parser.add_argument("--seed", type=int, default=1)
+    parser.add_argument("--tcpcc", type=str, default="cubic")
+    parser.add_argument("--bw", type=int, default=5)
     
     return parser.parse_args()
 
@@ -305,9 +309,9 @@ def main():
     if args.apprate == 1 and args.n_senders == 1:
         print("1 Mbps base rate for applications, 1 sender flow")
         if not args.infinitedata:
-            path = base_path + "1Mbps_1sender/"
+            path = base_path + f"1Mbps_1sender_{args.tcpcc}_{args.seed}_{args.bw}mbps/"
         else:
-            path = base_path + "1Mbps_1sender_inf/"
+            path = base_path + f"1Mbps_1sender_inf_{args.tcpcc}_{args.seed}_{args.bw}mbps/"
         if not os.path.isdir(path):
             os.mkdir(path)
 
@@ -320,11 +324,18 @@ def main():
     if args.apprate == 1 and args.n_senders == 3:
         print("1 Mbps base rate for applications, 3 sender flows")
         if args.infinitedata:
-            path = base_path + "1Mbps_3senders/"
+            if args.tcpcc == "bbr":
+                path = base_path + f"1Mbps_3senders_inf_rst_bbr_{args.seed}_{args.bw}mbps/"
+            else:
+                path = base_path + f"1Mbps_3senders_inf_rst_cubic_{args.seed}_{args.bw}mbps/"
+            # path = base_path + "1Mbps_3senders_inf/"
         elif args.rst:
-            path = base_path + f"1Mbps_3senders_rst_{args.seed}/"
+            if args.tcpcc == "bbr":
+                path = base_path + f"1Mbps_3senders_inf_rst_bbr_{args.seed}_{args.bw}mbps/"
+            else:
+                path = base_path + f"1Mbps_3senders_inf_rst_cubic_{args.seed}_{args.bw}mbps/"
         else:
-            path = base_path + "1Mbps_3senders/"
+            path = base_path + f"1Mbps_3senders_{args.seed}/"
         if not os.path.isdir(path):
             os.mkdir(path)
 
@@ -336,7 +347,12 @@ def main():
 
     if args.apprate == 1 and args.n_senders == 6:
         print("1 Mbps base rate for applications, 6 senders flows")
-        path = base_path + "1Mbps_6senders/"
+        if args.infinitedata:
+            path = base_path + f"1Mbps_6senders_inf_rst_cubic_{args.seed}_{args.bw}mbps/"
+        elif args.rst:
+            path = base_path + f"1Mbps_6senders_rst_{args.seed}/"
+        else:
+            path = base_path + "1Mbps_6senders/"
         if not os.path.isdir(path):
             os.mkdir(path)
 
@@ -351,10 +367,13 @@ def main():
         if not args.rst:
             path = base_path + "1Mbps_60senders/"
         else:
-            path = base_path + "1Mbps_60senders_rst/"
+            if args.infinitedata:
+                path = base_path + f"1Mbps_60senders_inf_rst_{args.tcpcc}_{args.seed}_{args.bw}mbps/"
+            else:
+                path = base_path + f"1Mbps_60senders_rst_{args.tcpcc}_{args.seed}_{args.bw}mbps/"
+            
         if not os.path.isdir(path):
             os.mkdir(path)
-
 
     # path = "results_test/"
     file_list = [f"small_test_no_disturbance_with_message_ids{args.seed}.csv"]
@@ -407,7 +426,7 @@ def main():
     start = 1
     stop = 60
     step = 0.005
-    _bin = 0.01
+    _bin = 1
 
     times, e2ed, timestarts, throughputs = timeseries_plot(path, df, start, stop, step=step, _bin=_bin)
 
@@ -632,6 +651,51 @@ def main():
 
 
     print("Drop fraction:", len(dropframe) / (len(dropframe) + len(df)))
+
+    # Plot queue size at receiver
+    path = path
+
+    values = [2, 3]
+    dict_switches = {
+        2: "A",
+        3: "B"
+    }
+
+    for value in values:
+        bottleneck_source = "/NodeList/{}/DeviceList/0/$ns3::CsmaNetDevice/TxQueue/PacketsInQueue".format(value)
+        bottleneck_queue = queueframe[queueframe["source"] == bottleneck_source]
+        print(bottleneck_source)
+
+        plt.figure(figsize=(5,5))
+        scs = sns.relplot(
+            data=bottleneck_queue,
+            kind='line',
+            x='time',
+            y='size',
+            legend=False,
+            errorbar=None,
+        )
+
+        scs.fig.suptitle(f'Bottleneck queue on switch {dict_switches[value]} '.format())
+        scs.fig.suptitle('Queue on bottleneck switch')
+        scs.set(xlabel='Simulation Time (seconds)', ylabel='Queue Size (packets)')
+        plt.xlim([0,60])
+        plt.ylim([0,100])
+        
+        save_name = path + f"Queue_profile_on_switch_{dict_switches[value]}" + ".pdf"
+        scs.fig.tight_layout()
+        plt.savefig(save_name) 
+
+    # Plot the scatter plot of packet drops
+    plt.figure(figsize=(5,5))
+    # One dimensional scatter plot
+    plt.scatter(dropframe["time"], dropframe["packetsize"], s=1, label="Packet drops")
+    plt.xlabel("Time (s)")
+    plt.ylabel("Packet Size (bytes)")
+    plt.title("Packet drops")
+    plt.savefig(path + "packet_drops.pdf")
+
+
 
 if __name__ == "__main__":
     main()

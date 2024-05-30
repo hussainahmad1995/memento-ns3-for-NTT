@@ -85,9 +85,20 @@ void logSenderPacket(Ptr<OutputStreamWrapper> stream, Ptr<Packet const> p)
 
     if (p->PeekPacketTag(timestampTag)){
 
+        Ptr<Packet> copy = p->Copy();
+        EthernetHeader eHeader;
+        copy->RemoveHeader(eHeader);
+        Ipv4Header ipHeader;
+        copy->RemoveHeader(ipHeader);
+        TcpHeader tcpHeader;
+        copy->RemoveHeader(tcpHeader);
+
         auto sender_time = timestampTag.GetTime();
         *stream->GetStream() << "Tx sent at:, "<< sender_time.GetSeconds()<< ", ";
         *stream->GetStream() << "Packet size is, "<< p->GetSize() << ", ";
+        *stream->GetStream() << "Packet uid is, "<< p->GetUid() << ", ";
+        // Add TCP sequence number to track the packet
+        *stream->GetStream() << "TCP sequence num is, "<< tcpHeader.GetSequenceNumber() << ", ";
         *stream->GetStream() << "\n";
     }
     else
@@ -124,17 +135,40 @@ void logPacketInfo(Ptr<OutputStreamWrapper> stream, Ptr<Packet const> p)
         *stream->GetStream() << "IP ID is, "<< ipHeader.GetIdentification() << ", "
                                 << "DSCP is, "<< ipHeader.GetDscp() << ", "
                                 << "ECN is, "<< ipHeader.GetEcn() << ", "
-                                << "TTL is, "<< 64 << ", "
+                                << "TTL is, "<< (uint16_t) ipHeader.GetTtl() << ", "
                                 << "Payload size is, "<< ipHeader.GetPayloadSize() << ", "
-                                << "Protocol is, "<< 6 << ", "
+                                << "Protocol is, "<< (uint16_t) ipHeader.GetProtocol() << ", "
                                 << "Source IP is, "<< ipHeader.GetSource() << ", "
-                                << "Destination IP is, "<< ipHeader.GetDestination() << ", ";
+                                << "Destination IP is, "<< ipHeader.GetDestination() << ", ";           
         TcpHeader tcpHeader;
-        copy->RemoveHeader(tcpHeader);
-        *stream->GetStream() << "TCP source port is, "<< tcpHeader.GetSourcePort() << ", "
-                             << "TCP destination port is, "<< tcpHeader.GetDestinationPort() << ", "
-                             << "TCP sequence num is, "<< tcpHeader.GetSequenceNumber() << ", "
-                             << "TCP current window size is, "<< tcpHeader.GetWindowSize() << ", "
+        UdpHeader udpHeader;
+
+        // Check if it's a TCP or UDP packet
+        if ((uint16_t) ipHeader.GetProtocol() == 6)
+        {   
+            copy->RemoveHeader(tcpHeader);
+            *stream->GetStream() << "TCP source port is, "<< tcpHeader.GetSourcePort() << ", "
+                                 << "TCP destination port is, "<< tcpHeader.GetDestinationPort() << ", "
+                                 << "TCP sequence num is, "<< tcpHeader.GetSequenceNumber() << ", "
+                                 << "TCP current window size is, "<< tcpHeader.GetWindowSize() << ", ";
+        }
+        else if ((uint16_t) ipHeader.GetProtocol() == 17)
+        {   
+            copy->RemoveHeader(udpHeader);
+            *stream->GetStream() << "UDP source port is, "<< udpHeader.GetSourcePort() << ", "
+                                 << "UDP destination port is, "<< udpHeader.GetDestinationPort() << ", ";
+        }
+        else
+        {
+            *stream->GetStream() << "Unknown transport protocol, ";
+        }
+
+        // copy->RemoveHeader(tcpHeader);
+        *stream->GetStream() 
+                            //  << "TCP source port is, "<< tcpHeader.GetSourcePort() << ", "
+                            //  << "TCP destination port is, "<< tcpHeader.GetDestinationPort() << ", "
+                            //  << "TCP sequence num is, "<< tcpHeader.GetSequenceNumber() << ", "
+                            //  << "TCP current window size is, "<< tcpHeader.GetWindowSize() << ", "
                              << "Delay is, "<< diff_time.GetSeconds() << ", "
                              << "Workload id is, "<< idTag.GetWorkload() << ','
                              << "Application id is, "<< idTag.GetApplication() << ','
@@ -151,6 +185,37 @@ void logPacketInfo(Ptr<OutputStreamWrapper> stream, Ptr<Packet const> p)
     };
 };
 
+// Log TCP ack time, sequence number, and window size 
+// received at the sender
+void logAckInfo(Ptr<OutputStreamWrapper> stream, Ptr<Packet const> p)
+{
+    TimestampTag timestampTag;
+    IdTag idTag;
+    FlowIdTag flowid;
+    MessageTag mTag;
+    p->PeekPacketTag(mTag);
+
+    Ptr<Packet> copy = p->Copy();
+    EthernetHeader eHeader;
+    copy->RemoveHeader(eHeader);
+    Ipv4Header ipHeader;
+    copy->RemoveHeader(ipHeader);
+    TcpHeader tcpHeader;
+    copy->RemoveHeader(tcpHeader);
+
+    auto current_time = Simulator::Now();
+    *stream->GetStream() << "Ack received at "<< current_time.GetSeconds()<< ", ";
+    *stream->GetStream() << "Packet size is, "<< p->GetSize() << ", ";
+    *stream->GetStream() << "Packet uid is, "<< p->GetUid() << ", ";
+    // Add TCP sequence number to track the packet
+    *stream->GetStream() << "TCP sequence num is, "<< tcpHeader.GetSequenceNumber() << ", ";
+    // Add TCP ack number to track the packet
+    *stream->GetStream() << "TCP ack num is, "<< tcpHeader.GetAckNumber() << ", ";
+
+    p->Print(*stream->GetStream());
+    *stream->GetStream() << "\n";
+};
+                             
 void logValue(Ptr<OutputStreamWrapper> stream, std::string context,
               uint32_t oldval, uint32_t newval)
 {
@@ -163,10 +228,25 @@ void logDrop(Ptr<OutputStreamWrapper> stream,
              std::string context, Ptr<Packet const> p)
 {
     auto current_time = Simulator::Now();
+
+    Ptr<Packet> copy = p->Copy();
+    EthernetHeader eHeader;
+    copy->RemoveHeader(eHeader);
+    Ipv4Header ipHeader;
+    copy->RemoveHeader(ipHeader);
+    TcpHeader tcpHeader;
+    copy->RemoveHeader(tcpHeader);
+
     *stream->GetStream() << context << ',' << current_time.GetSeconds() << ','
-                         << p->GetSize() << std::endl;
+                         << p->GetSize() << "," << tcpHeader.GetSequenceNumber() << std::endl;
 };
 
+// static Ptr<OutputStreamWrapper> cWndStream;
+// static void CwndTracer(uint32_t oldCwnd, uint32_t newCwnd)
+// {
+//     auto current_time = Simulator::Now();
+//     *cWndStream->GetStream() << current_time.GetSeconds() << ',' << newCwnd << std::endl;
+// }
 
 // TODO: Add base stream? Or how to get different random streams?
 Ptr<RandomVariableStream> TimeStream(double min = 0.0, double max = 1.0)
@@ -221,7 +301,7 @@ int main(int argc, char *argv[])
     DataRate linkrate("5Mbps");
     DataRate baserate("100kbps");
     int start_window = 1;
-    Time delay("5ms");
+    Time linkdelay("5ms");
     QueueSize queuesize("100p");
     auto seed = 1;
 
@@ -229,15 +309,16 @@ int main(int argc, char *argv[])
     DataRate congestion1("0Mbps");
     
     std::string basedir = "./distributions/";
-    std::string w1 = basedir + "Facebook_WebServerDist_IntraCluster.txt";
-    std::string w2 = basedir + "Facebook_WebServerDist_IntraCluster.txt";
-    std::string w3 = basedir + "Facebook_WebServerDist_IntraCluster.txt";
+    std::string w1 = basedir + "SingleTestDistribution.txt";
+    std::string w2 = basedir + "SingleTestDistribution.txt";
+    std::string w3 = basedir + "SingleTestDistribution.txt";
     std::string prefix = "shift";
     double c_w1 = 1;
     double c_w2 = 1;
     double c_w3 = 1;
 
     auto choose_topo = 1;
+    std::string cc_alg = "";
 
     CommandLine cmd;
     cmd.AddValue("topo", "Choose the topology", choose_topo);
@@ -245,7 +326,7 @@ int main(int argc, char *argv[])
     cmd.AddValue("apprate", "Base traffic rate for each app.", baserate);
     cmd.AddValue("startwindow", "Maximum diff in start time.", start_window);
     cmd.AddValue("linkrate", "Link capacity rate.", linkrate);
-    cmd.AddValue("linkdelay", "Link delay.", delay);
+    cmd.AddValue("linkdelay", "Link delay.", linkdelay);
     cmd.AddValue("queuesize", "Bottleneck queue size.", queuesize);
     cmd.AddValue("w1", "Factor for W1 traffic (FB webserver).", c_w1);
     cmd.AddValue("w2", "Factor for W2 traffic (DCTCP messages).", c_w2);
@@ -253,6 +334,7 @@ int main(int argc, char *argv[])
     cmd.AddValue("congestion1", "Congestion traffic rate.", congestion1);
     cmd.AddValue("prefix", "Prefix for log files.", prefix);
     cmd.AddValue("seed", "Set simulation seed", seed);
+    cmd.AddValue("cc", "TCP-CC algorithm.", cc_alg);
     cmd.Parse(argc, argv);
 
     // Compute resulting workload datarates.
@@ -275,7 +357,14 @@ int main(int argc, char *argv[])
                  << std::endl
                  << "W2: " << w2 << " (" << rate_w2 << ")"
                  << std::endl
-                 << "W3: " << w3 << " (" << rate_w3 << ")");
+                 << "W3: " << w3 << " (" << rate_w3 << ")"
+                 << std::endl
+                 << "Linkrate: " << linkrate << std::endl
+                 << "Start window: " << start_window << std::endl
+                 << "Queuesize: " << queuesize << std::endl
+                 << "Seed: " << seed << std::endl
+                 << "Prefix: " << prefix << std::endl
+                 << "CC: " << cc_alg << std::endl);
 
     // Simulation variables
     auto simStart = TimeValue(Seconds(0));
@@ -291,7 +380,7 @@ int main(int argc, char *argv[])
     Config::SetDefault("ns3::TcpSocket::SndBufSize", UintegerValue(4000000));
     Config::SetDefault("ns3::TcpSocket::RcvBufSize", UintegerValue(4000000));
     Config::SetDefault("ns3::TcpSocket::SegmentSize", UintegerValue(1380));
-    Config::SetDefault("ns3::TcpL4Protocol::SocketType", StringValue("ns3::TcpCubic"));
+    Config::SetDefault("ns3::TcpL4Protocol::SocketType", StringValue(cc_alg));
     
     //
     // Explicitly create the nodes required by the topology (shown above).
@@ -337,7 +426,7 @@ int main(int argc, char *argv[])
     CsmaHelper csma;
     csma.SetChannelAttribute("FullDuplex", BooleanValue(true));
     csma.SetChannelAttribute("DataRate", DataRateValue(linkrate));
-    csma.SetChannelAttribute("Delay", TimeValue(MilliSeconds(5)));
+    csma.SetChannelAttribute("Delay", TimeValue(MilliSeconds(linkdelay.GetMilliSeconds())));
 
     // Create the csma links
     // csma.Install(NodeContainer(sender, switchA));
@@ -480,13 +569,16 @@ int main(int argc, char *argv[])
             "Protocol", TCP, "StartTime", simStart, "StopTime", simStop);
         receiver1->AddApplication(congestion_sink);
 
+        auto c_start_time = std::floor(trafficStart1->GetValue());
+        std::cout << "Congestion starting at..." << c_start_time << std::endl;
+
         Ptr<Application> congestion_source = CreateObjectWithAttributes<OnOffApplication>(
             "Remote", AddressValue(InetSocketAddress(addrReceiver1, 2100)),
             "Protocol", TCP,
             "OnTime", StringValue("ns3::ConstantRandomVariable[Constant=1]"),
             "OffTime", StringValue("ns3::ConstantRandomVariable[Constant=0]"),
             "DataRate", DataRateValue(congestion1),
-            "StartTime", TimeValue(Seconds(trafficStart1->GetValue())),
+            "StartTime", TimeValue(Seconds(c_start_time)),
             "StopTime", simStop);
         disturbance1->AddApplication(congestion_source);
     }
@@ -523,7 +615,33 @@ int main(int argc, char *argv[])
 
     receiver1->GetDevice(0)->TraceConnectWithoutContext(
         "MacRx", MakeBoundCallback(&logPacketInfo, trackfile));
+
     
+    // Trace packets received at the sender too
+    // for (auto it = senders.Begin(); it != senders.End(); it++)
+    // {
+    //     Ptr<Node> sender = *it;
+    //     std::stringstream sender_recvd_trackfilename;
+    //     sender_recvd_trackfilename << prefix << "_sender_" << sender->GetId() << "_recvd.csv";
+    //     auto sender_trackfile = asciiTraceHelper.CreateFileStream(sender_recvd_trackfilename.str());
+
+    //     sender->GetDevice(0)->TraceConnectWithoutContext(
+    //         "MacRx", MakeBoundCallback(&logAckInfo, sender_trackfile));
+    // }
+
+    // Track congestion window
+    // for (auto it = senders.Begin(); it != senders.End(); it++)
+    // {
+    //     Ptr<Node> sender = *it;
+    //     std::ostringstream stream;
+    //     // Get node id from getDevice(0) of the first sender
+    //     uint32_t nodeid = sender->GetId();
+    //     std::cout << nodeid << std::endl;
+    //     stream << "/NodeList/" << nodeid << "/$ns3::TcpL4Protocol/SocketList/0/CongestionWindow";
+    //     std::cout << stream.str() << std::endl;
+    //     Config::ConnectWithoutContext(stream.str(), MakeCallback (&CwndTracer));
+    // }
+
 
     //csma.EnablePcapAll("csma-bridge", false);
 

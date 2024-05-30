@@ -47,7 +47,11 @@
         "streambuf": "cpp",
         "cinttypes": "cpp",
         "typeinfo": "cpp",
-        "ratio": "cpp"
+        "ratio": "cpp",
+        "chrono": "cpp",
+        "ctime": "cpp",
+        "numeric": "cpp",
+        "random": "cpp"
     },
     "python.pythonPath": "/usr/bin/python3"
 }
