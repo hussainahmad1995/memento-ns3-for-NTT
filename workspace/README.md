@@ -76,6 +76,10 @@ Now, install the Python dependencies:
 
 Alternatively, if installing environments and dependencies may not work on some systems (Eg. Windows), you can use our pre-built Docker image for setting up the same. The Docker image has a Python environment setup with the dependencies, along with the entire code packaged in it, for ease of use.
 
+To pull the docker image :
+
+    $ docker image pull siddhantray/ntt-docker
+    
 To use the docker image, run 
 
     $ ./docker-run.sh
