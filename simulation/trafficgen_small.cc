@@ -49,9 +49,12 @@
 #include "ns3/experiment-tags.h"
 
 using namespace ns3;
+using namespace std;
 
 NS_LOG_COMPONENT_DEFINE("TrafficGenerationExperiment");
 
+// Factory function for creation of a tcpsocket. 
+// Instead of using the objects reference we use the method to create the object.
 const auto TCP = TypeIdValue(TcpSocketFactory::GetTypeId());
 const auto UDP = TypeIdValue(UdpSocketFactory::GetTypeId());
 
@@ -66,7 +69,7 @@ void logSize(Ptr<OutputStreamWrapper> stream, Ptr<Packet const> p)
 // Tag a packet with a timestamp.
 void setTimeTag(Ptr<Packet const> p)
 {
-    TimestampTag tag;
+   TimestampTag tag;
     tag.SetTime(Simulator::Now());
     p->AddPacketTag(tag);
 };
@@ -173,47 +176,14 @@ NetDeviceContainer GetNetDevices(Ptr<Node> node)
     return devices;
 }
 
-int main(int argc, char *argv[])
-{   
-    // Measure wall clock time 
-    auto start = std::chrono::system_clock::now();
-	std::time_t start_time = std::chrono::system_clock::to_time_t(start);
-	
-	std::cout << "Started computation at " << std::ctime(&start_time);
-    //
-    // Users may find it convenient to turn on explicit debugging
-    // for selected modules; the below lines suggest how to do this
-    //
-    #if 1
-    LogComponentEnable("TrafficGenerationExperiment", LOG_LEVEL_INFO);
-    #endif
-    //
-    // Allow the user to override any of the defaults and the above Bind() at
-    // run-time, via command-line arguments
-    //
-
-    int n_apps = 10;
-    DataRate linkrate("5Mbps");
-    DataRate baserate("100kbps");
-    int start_window = 1;
-    Time delay("5ms");
-    QueueSize queuesize("100p");
-    auto seed = 1;
-
-    // Different for different receivers (can choose to turn off for some, not for all)
-    DataRate congestion1("0Mbps");
+CommandLine ParseCommandLineArguments(int argc, 
+    char *argv[], int choose_topo,
+    int &n_apps, double &baserate, 
+    double &start_window, double &linkrate,
+    double &delay, int &queuesize, double &c_w1,
+    double &c_w2, double &c_w3, double &congestion1, 
+    std::string &prefix, uint32_t &seed) {
     
-    std::string basedir = "./distributions/";
-    std::string w1 = basedir + "Facebook_WebServerDist_IntraCluster.txt";
-    std::string w2 = basedir + "DCTCP_MsgSizeDist.txt";
-    std::string w3 = basedir + "Facebook_HadoopDist_All.txt";
-    std::string prefix = "shift";
-    double c_w1 = 1;
-    double c_w2 = 1;
-    double c_w3 = 1;
-
-    auto choose_topo = 1;
-
     CommandLine cmd;
     cmd.AddValue("topo", "Choose the topology", choose_topo);
     cmd.AddValue("apps", "Number of traffic apps per workload.", n_apps);
@@ -230,10 +200,68 @@ int main(int argc, char *argv[])
     cmd.AddValue("seed", "Set simulation seed", seed);
     cmd.Parse(argc, argv);
 
+    return cmd;
+    };
+
+int main(int argc, char *argv[])
+{   
+    // Measure wall clock time 
+    auto start = std::chrono::system_clock::now();
+	std::time_t start_time = std::chrono::system_clock::to_time_t(start);
+	std::cout << "Started computation at " << std::ctime(&start_time);
+    // std::cout << "Log message for TCP"+ TCP.DeserializeFromString() << endl;
+    //
+    // Users may find it convenient to turn on explicit debugging
+    // for selected modules; the below lines suggest how to do this
+    //
+    #if 1
+    LogComponentEnable("TrafficGenerationExperiment", LOG_LEVEL_INFO);
+    #endif
+    //
+    // Allow the user to override any of the defaults and the above Bind() at
+    // run-time, via command-line arguments
+    //
+
+
+    //creating default values - can be changed by user using command line arguments
+    int n_apps = 10;
+    DataRate linkrate("5Mbps");
+    DataRate baserate("100kbps");
+    int start_window = 1;
+    Time delay("5ms");
+    QueueSize queuesize("100p");
+    auto seed = 1;
+
+    // Different for different receivers (can choose to turn off for some, not for all)
+    DataRate congestion1("0Mbps");
+    
+
+    // Traffic distributions - the base directory has files from a paper that 
+    std::string basedir = "./distributions/";
+    std::string w1 = basedir + "Facebook_WebServerDist_IntraCluster.txt";
+    std::string w2 = basedir + "DCTCP_MsgSizeDist.txt";
+    std::string w3 = basedir + "Facebook_HadoopDist_All.txt";
+    std::string prefix = "shift";
+    double c_w1 = 1;
+    double c_w2 = 1;
+    double c_w3 = 1;
+
+    auto choose_topo = 1;
+
+    cout << "Command Line arguments" << argc << argv << choose_topo << n_apps << baserate << start_window ;
+    //Parse command line arguments
+    CommandLine cmd = ParseCommandLineArguments(argc, argv, choose_topo, n_apps, baserate, start_window, linkrate, delay, queuesize, c_w1, c_w2, c_w3, congestion1, prefix, seed);
+    cout << "Command Line arguments" << n_apps << endl;
+    
     // Compute resulting workload datarates.
     auto rate_w1 = DataRate(static_cast<uint64_t>(c_w1 * baserate.GetBitRate()));
     auto rate_w2 = DataRate(static_cast<uint64_t>(c_w2 * baserate.GetBitRate()));
     auto rate_w3 = DataRate(static_cast<uint64_t>(c_w3 * baserate.GetBitRate()));
+
+    cout << "rate_w1 : " << rate_w1 << endl;
+    cout << "rate_w2 : " << rate_w2 << endl;
+    cout << "rate_w3 : " << rate_w3 << endl;
+
 
     // Print Overview of seetings
     NS_LOG_DEBUG("Overview:"
