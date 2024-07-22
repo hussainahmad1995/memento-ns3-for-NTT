@@ -54,7 +54,8 @@ using namespace std;
 NS_LOG_COMPONENT_DEFINE("TrafficGenerationExperiment");
 
 // Factory function for creation of a tcpsocket. 
-// Instead of using the objects reference we use the method to create the object.
+// Instead of using the objects reference method to create the object.
+// 
 const auto TCP = TypeIdValue(TcpSocketFactory::GetTypeId());
 const auto UDP = TypeIdValue(UdpSocketFactory::GetTypeId());
 
@@ -177,12 +178,13 @@ NetDeviceContainer GetNetDevices(Ptr<Node> node)
 }
 
 CommandLine ParseCommandLineArguments(int argc, 
-    char *argv[], int choose_topo,
-    int &n_apps, double &baserate, 
-    double &start_window, double &linkrate,
-    double &delay, int &queuesize, double &c_w1,
-    double &c_w2, double &c_w3, double &congestion1, 
-    std::string &prefix, uint32_t &seed) {
+    char *argv[], int &choose_topo,
+    int &n_apps, DataRate &baserate, 
+    int &start_window, DataRate &linkrate,
+    Time &delay, QueueSize &queuesize, double &c_w1,
+    double &c_w2, double &c_w3, 
+    DataRate &congestion1, 
+    std::string &prefix, uint32_t seed) {
     
     CommandLine cmd;
     cmd.AddValue("topo", "Choose the topology", choose_topo);
@@ -220,10 +222,7 @@ int main(int argc, char *argv[])
     //
     // Allow the user to override any of the defaults and the above Bind() at
     // run-time, via command-line arguments
-    //
-
-
-    //creating default values - can be changed by user using command line arguments
+    //default values - are changed by scripts using command line arguments
     int n_apps = 10;
     DataRate linkrate("5Mbps");
     DataRate baserate("100kbps");
@@ -248,10 +247,31 @@ int main(int argc, char *argv[])
 
     auto choose_topo = 1;
 
-    cout << "Command Line arguments" << argc << argv << choose_topo << n_apps << baserate << start_window ;
+ cout << "\n Before parsing : "
+     << "\n topo : " << to_string(choose_topo)
+     << "\nnumber of applications : " << to_string(n_apps)
+     << "\nbaserate(aka apprate) : " << to_string(baserate.GetBitRate()) // baserate is equal to the apprate in the run_topo_snall.sh
+     << "\nstart_window: " << to_string(start_window) 
+     << "\nlink_rate: " << to_string(linkrate.GetBitRate())
+     << "\nqueuesize: " << to_string(queuesize.GetValue())
+     << "\ncongestion1: " << to_string(congestion1.GetBitRate())
+     << "\nprefix: " << prefix 
+     << "\nseed: " << seed << "\n";
+
     //Parse command line arguments
-    CommandLine cmd = ParseCommandLineArguments(argc, argv, choose_topo, n_apps, baserate, start_window, linkrate, delay, queuesize, c_w1, c_w2, c_w3, congestion1, prefix, seed);
-    cout << "Command Line arguments" << n_apps << endl;
+    ParseCommandLineArguments(argc, argv, choose_topo, n_apps, baserate, start_window, linkrate, delay,
+                                queuesize, c_w1, c_w2, c_w3, congestion1, prefix, seed);
+
+     cout << "\n After parsing : " 
+     << "\n topo : " << to_string(choose_topo)
+     << "\nnumber of applications : " << to_string(n_apps)
+     << "\nbaserate : " << to_string(baserate.GetBitRate()) // baserate is equal to the apprate in the run_topo_snall.sh
+     << "\nstart_window: " << to_string(start_window) 
+     << "\nlink_rate: " << to_string(linkrate.GetBitRate())
+     << "\nqueuesize: " << to_string(queuesize.GetValue())
+     << "\ncongestion1: " << to_string(congestion1.GetBitRate())
+     << "\nprefix: " << prefix 
+     << "\nseed: " << seed << "\n";
     
     // Compute resulting workload datarates.
     auto rate_w1 = DataRate(static_cast<uint64_t>(c_w1 * baserate.GetBitRate()));
@@ -319,31 +339,39 @@ int main(int argc, char *argv[])
     std::cout << choose_topo << std::endl;
     std::cout << congestion1 << std::endl;
     
+    //Node 
     NodeContainer hosts;
+    //create 2 hosts - create n nodes and appends pointer to the nodes to the container
     hosts.Create(num_hosts);
     // Keep references to sender, receiver, and disturbance
     // auto sender = hosts.Get(0);
 
+    // Get the receiver and disturbance nodes - reciever1 and disturbance1
     auto receiver1 = hosts.Get(0);
     auto disturbance1 = hosts.Get(1);
     
+
+    // Create the switches
     NodeContainer switches;
     switches.Create(2);
     auto switchA = switches.Get(0);
     auto switchB = switches.Get(1);
     
+    //create senders - 3 times the number of applications
     NodeContainer senders;
     senders.Create(3 * n_apps);
 
     
     NS_LOG_INFO("Build Topology");
     CsmaHelper csma;
+    // set the channel attributes on each csma channel created by csmalHelper.install(which is the next line)
     csma.SetChannelAttribute("FullDuplex", BooleanValue(true));
     csma.SetChannelAttribute("DataRate", DataRateValue(linkrate));
     csma.SetChannelAttribute("Delay", TimeValue(MilliSeconds(5)));
 
     // Create the csma links
     // csma.Install(NodeContainer(sender, switchA));
+    // each node will have the attributes set by the csma helper.
 
     csma.Install(NodeContainer(receiver1, switchB));
     csma.Install(NodeContainer(disturbance1, switchB));
@@ -357,9 +385,9 @@ int main(int argc, char *argv[])
     }
 
     // Update the queue size
-    Config::Set(
-        "/NodeList/2/DeviceList/0/$ns3::CsmaNetDevice/TxQueue/MaxSize",
-        QueueSizeValue(queuesize));
+    // we can use the config namespace provided by ns3 to set attributes
+    //e,g in this case we are setting the queue size
+    Config::Set("/NodeList/2/DeviceList/0/$ns3::CsmaNetDevice/TxQueue/MaxSize", QueueSizeValue(queuesize));
 
     // Create the bridge netdevice, turning the nodes into actual switches
     BridgeHelper bridge;
