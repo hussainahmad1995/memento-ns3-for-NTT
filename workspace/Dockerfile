@@ -8,5 +8,6 @@ RUN set -xe \
 COPY requirements.txt requirements.txt
 RUN pip install --upgrade pip
 RUN pip install -r requirements.txt
+RUN curl -fsSL https://get.docker.com | sh
 
 COPY . .
