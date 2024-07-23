@@ -56,6 +56,20 @@ def generate_sliding_windows(
     RTT_LABEL=RTT_LABEL,
     RTT_WIFI_NETWORK=RTT_WIFI_NETWORK,
 ):
+
+print(f"SLIDING_WINDOW_SIZE: {SLIDING_WINDOW_SIZE}\n"
+      f"WINDOW_BATCH_SIZE: {WINDOW_BATCH_SIZE}\n"
+      f"num_features: {num_features}\n"
+      f"TEST_ONLY_NEW: {TEST_ONLY_NEW}\n"
+      f"NUM_BOTTLENECKS: {NUM_BOTTLENECKS}\n"
+      f"reduce_type: {reduce_type}\n"
+      f"MEMENTO: {MEMENTO}\n"
+      f"IAT_LABEL: {IAT_LABEL}\n"
+      f"DATACENTER_BURSTS: {DATACENTER_BURSTS}\n"
+      f"LAPTOP_ON_WIFI: {LAPTOP_ON_WIFI}\n"
+      f"RTT_LABEL: {RTT_LABEL}\n"
+      f"RTT_WIFI_NETWORK: {RTT_WIFI_NETWORK}")
+
     sl_win_start = SLIDING_WINDOW_START
     sl_win_size = SLIDING_WINDOW_SIZE
     sl_win_shift = SLIDING_WINDOW_STEP

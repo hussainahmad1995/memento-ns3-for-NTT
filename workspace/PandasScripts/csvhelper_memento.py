@@ -29,6 +29,7 @@ def rename_flowid(input_text):
 
 
 def generate_senders_csv(path, n_senders):
+    print("The current path is " + str(path) + " the number of senders are " + str(n_senders))
     path = path
     num_senders = n_senders
     sender_num = 0
@@ -133,21 +134,24 @@ def generate_senders_csv(path, n_senders):
                 "small_test_one_disturbance_with_message_ids10.csv",
                 "small_test_one_disturbance_with_message_ids11.csv"]"""
 
-    files = [
-        "large_test_disturbance_with_message_ids1.csv",
-        "large_test_disturbance_with_message_ids2.csv",
-        "large_test_disturbance_with_message_ids3.csv",
-        "large_test_disturbance_with_message_ids4.csv",
-        "large_test_disturbance_with_message_ids5.csv",
-        "large_test_disturbance_with_message_ids6.csv",
-        "large_test_disturbance_with_message_ids7.csv",
-        "large_test_disturbance_with_message_ids8.csv",
-        "large_test_disturbance_with_message_ids9.csv",
-        "large_test_disturbance_with_message_ids10.csv",
-    ]
+    # files = [
+    #     "large_test_disturbance_with_message_ids1.csv",
+    #     "large_test_disturbance_with_message_ids2.csv",
+    #     "large_test_disturbance_with_message_ids3.csv",
+    #     "large_test_disturbance_with_message_ids4.csv",
+    #     "large_test_disturbance_with_message_ids5.csv",
+    #     "large_test_disturbance_with_message_ids6.csv",
+    #     "large_test_disturbance_with_message_ids7.csv",
+    #     "large_test_disturbance_with_message_ids8.csv",
+    #     "large_test_disturbance_with_message_ids9.csv",
+    #     "large_test_disturbance_with_message_ids10.csv",
+    # ]
     # files = ["memento_test10.csv", "memento_test20.csv", "memento_test25.csv"]
 
+    files = ["small_test_one_disturbance_with_message_ids1.csv"]
+
     for file in files:
+        print("The output of a file " + file)
 
         sender_tx_df = pd.read_csv(path + file)
         sender_tx_df = pd.DataFrame(np.vstack([sender_tx_df.columns, sender_tx_df]))
