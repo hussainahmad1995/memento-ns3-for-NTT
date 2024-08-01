@@ -1,9 +1,6 @@
 # Output files
-*.csv
 *.pcap
 *.pdf
-
-results
 
 # IDE etc.
 .vscode
