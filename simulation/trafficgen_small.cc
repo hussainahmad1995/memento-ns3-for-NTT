@@ -539,12 +539,12 @@ int main(int argc, char *argv[])
     //csma.EnablePcapAll("csma-bridge", false);
 
     // Track queues
-    auto queuefile = asciiTraceHelper.CreateFileStream("results/queue.csv");
+    auto queuefile = asciiTraceHelper.CreateFileStream("results/queue_status.csv");
     Config::Connect(
         "/NodeList/*/DeviceList/*/$ns3::CsmaNetDevice/TxQueue/PacketsInQueue",
         MakeBoundCallback(&logValue, queuefile));
 
-    auto dropfile = asciiTraceHelper.CreateFileStream("results/drops.csv");
+    auto dropfile = asciiTraceHelper.CreateFileStream("results/drop_pkts.csv");
     Config::Connect(
         "/NodeList/*/DeviceList/*/$ns3::CsmaNetDevice/MacTxDrop",
         MakeBoundCallback(&logDrop, dropfile));
